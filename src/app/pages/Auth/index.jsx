@@ -12,19 +12,21 @@ import { schema } from "./schema";
 import { Page } from "components/shared/Page";
 import appLogo from "assets/logo.png";
 import { useAuthContext } from "app/contexts/auth/context";
+import { getFinancialYears } from "utils/financialYear";
 
 export default function SignIn() {
   const navigate = useNavigate();
   const location = useLocation();
   const [errorMessage, setErrorMessage] = useState(null);
   const { login } = useAuthContext();
+  const finYears = getFinancialYears();
 
   // ── Brute Force Mitigation State ──
   const [failedAttempts, setFailedAttempts] = useState(() =>
-    Number(localStorage.getItem("login_failed_attempts") || 0)
+    Number(localStorage.getItem("login_failed_attempts") || 0),
   );
   const [lockoutTime, setLockoutTime] = useState(() =>
-    Number(localStorage.getItem("login_lockout_until") || 0)
+    Number(localStorage.getItem("login_lockout_until") || 0),
   );
   const [timeLeft, setTimeLeft] = useState(0);
 
@@ -50,7 +52,7 @@ export default function SignIn() {
     defaultValues: {
       username: "",
       password: "",
-      fiscalYear: "2026-27",
+      fiscalYear: finYears[0], // Default to current FY
     },
   });
 
@@ -77,7 +79,6 @@ export default function SignIn() {
           ? redirect
           : "/dashboards/home";
       navigate(finalRedirect, { replace: true });
-
     } catch (err) {
       // Increment failed attempts
       const newAttempts = failedAttempts + 1;
@@ -86,8 +87,10 @@ export default function SignIn() {
 
       // Determine Lockout/Throttle time
       let waitDuration = 0;
-      if (newAttempts >= 5) waitDuration = 30000; // 30s lockout
-      else if (newAttempts === 4) waitDuration = 5000; // 5s throttle
+      if (newAttempts >= 5)
+        waitDuration = 30000; // 30s lockout
+      else if (newAttempts === 4)
+        waitDuration = 5000; // 5s throttle
       else if (newAttempts === 3) waitDuration = 2000; // 2s throttle
 
       if (waitDuration > 0) {
@@ -97,7 +100,9 @@ export default function SignIn() {
       }
 
       setErrorMessage(
-        err?.response?.data?.message || err?.message || "Login failed. Please try again."
+        err?.response?.data?.message ||
+          err?.message ||
+          "Login failed. Please try again.",
       );
     }
   };
@@ -118,10 +123,10 @@ export default function SignIn() {
                   style={{ marginLeft: "70px" }}
                 />
               </Link>
-              <h2 className="text-2xl font-semibold text-gray-600 dark:text-dark-100">
+              <h2 className="dark:text-dark-100 text-2xl font-semibold text-gray-600">
                 Welcome Back
               </h2>
-              <p className="text-gray-400 dark:text-dark-300">
+              <p className="dark:text-dark-300 text-gray-400">
                 Please sign in to continue
               </p>
             </div>
@@ -161,21 +166,19 @@ export default function SignIn() {
               </div>
 
               <div className="mt-4">
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-dark-100">
+                <label className="dark:text-dark-100 mb-1 block text-sm font-medium text-gray-700">
                   Select Financial Year
                 </label>
                 <select
                   disabled={isLocked}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-dark-300 dark:bg-dark-600 dark:text-dark-100 disabled:opacity-60"
+                  className="focus:border-primary-500 focus:ring-primary-500 dark:border-dark-300 dark:bg-dark-600 dark:text-dark-100 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:ring-1 focus:outline-none disabled:opacity-60"
                   {...register("fiscalYear")}
                 >
-                  <option value="2026-27">FY 2026-27</option>
-                  <option value="2025-26">FY 2025-26</option>
-                  <option value="2024-25">FY 2024-25</option>
-                  <option value="2023-24">FY 2023-24</option>
-                  <option value="2022-23">FY 2022-23</option>
-                  <option value="2021-22">FY 2021-22</option>
-                  <option value="2020-21">FY 2020-21</option>
+                  {finYears.map((fy) => (
+                    <option key={fy} value={fy}>
+                      FY {fy}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -183,7 +186,7 @@ export default function SignIn() {
                 <Checkbox label="Remember me" disabled={isLocked} />
                 <a
                   href="##"
-                  className="text-xs text-gray-400 hover:text-gray-800 dark:text-dark-300 dark:hover:text-dark-100"
+                  className="dark:text-dark-300 dark:hover:text-dark-100 text-xs text-gray-400 hover:text-gray-800"
                 >
                   Forgot Password?
                 </a>

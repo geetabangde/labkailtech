@@ -14,7 +14,7 @@
 import clsx from "clsx";
 import { useCallback, useState } from "react";
 import PropTypes from "prop-types";
-import { useNavigate } from "react-router";
+import { Link } from "react-router-dom";
 import axios from "utils/axios";
 import { toast } from "sonner";
 
@@ -148,7 +148,6 @@ function CancelRequestModal({ show, onClose, onOk, invoiceno, loading }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────
 export function RowActions({ row, table }) {
-  const navigate = useNavigate();
   const rowData = row.original;
   const permissions = table.options.meta?.permissions ?? [];
 
@@ -260,9 +259,7 @@ export function RowActions({ row, table }) {
         {/* PHP: always → View Invoice (viewInvoiceCalibration.php) */}
         <ActionBtn
           color="primary"
-          onClick={() =>
-            navigate(`/dashboards/accounts/testing-invoices/view/${rowData.id}`)
-          }
+          to={`/dashboards/accounts/testing-invoices/view/${rowData.id}`}
         >
           View Invoice
         </ActionBtn>
@@ -270,11 +267,7 @@ export function RowActions({ row, table }) {
         {/* PHP: always → View Detailed Invoice */}
         <ActionBtn
           color="info"
-          onClick={() =>
-            navigate(
-              `/dashboards/accounts/testing-invoices/view-detailed/${rowData.id}`,
-            )
-          }
+          to={`/dashboards/accounts/testing-invoices/view-detailed/${rowData.id}`}
         >
           View Detailed
         </ActionBtn>
@@ -282,11 +275,7 @@ export function RowActions({ row, table }) {
         {/* PHP: always → View Itemized Invoice */}
         <ActionBtn
           color="info"
-          onClick={() =>
-            navigate(
-              `/dashboards/accounts/testing-invoices/view-itemized/${rowData.id}`,
-            )
-          }
+          to={`/dashboards/accounts/testing-invoices/view-itemized/${rowData.id}`}
         >
           View Itemized
         </ActionBtn>
@@ -304,11 +293,7 @@ export function RowActions({ row, table }) {
           canEdit && (
             <ActionBtn
               color="warning"
-              onClick={() =>
-                navigate(
-                  `/dashboards/accounts/testing-invoices/edit/${rowData.id}`,
-                )
-              }
+              to={`/dashboards/accounts/testing-invoices/edit/${rowData.id}`}
             >
               Edit
             </ActionBtn>
@@ -343,7 +328,7 @@ export function RowActions({ row, table }) {
 }
 
 // ── Small button helper ───────────────────────────────────────────────────
-function ActionBtn({ color = "primary", onClick, children }) {
+function ActionBtn({ color = "primary", onClick, to, children }) {
   const colorMap = {
     success: "bg-green-500 hover:bg-green-600 text-white",
     primary: "bg-blue-500 hover:bg-blue-600 text-white",
@@ -351,14 +336,21 @@ function ActionBtn({ color = "primary", onClick, children }) {
     warning: "bg-amber-500 hover:bg-amber-600 text-white",
     danger: "bg-red-500   hover:bg-red-600   text-white",
   };
+  const classes = clsx(
+    "inline-flex items-center rounded px-2.5 py-1 text-xs font-medium transition-colors",
+    colorMap[color],
+  );
+
+  if (to) {
+    return (
+      <Link to={to} className={classes}>
+        {children}
+      </Link>
+    );
+  }
+
   return (
-    <button
-      onClick={onClick}
-      className={clsx(
-        "inline-flex items-center rounded px-2.5 py-1 text-xs font-medium transition-colors",
-        colorMap[color],
-      )}
-    >
+    <button onClick={onClick} className={classes}>
       {children}
     </button>
   );

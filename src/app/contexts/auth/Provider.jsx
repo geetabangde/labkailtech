@@ -9,15 +9,13 @@ import axios from "utils/axios";
 import { isTokenValid, setSession } from "utils/jwt";
 import { AuthContext } from "./context";
 
-
 // ----------------------------------------------------------------------
 
 const initialState = {
-  isAuthenticated: false,
-  isLoading: false,
-  isInitialized: false,
-  errorMessage: null,
   user: null,
+  finyear: null,
+  finfromdate: null,
+  fintodate: null,
 };
 
 const reducerHandlers = {
@@ -28,24 +26,31 @@ const reducerHandlers = {
     user: action.payload.user ?? null,
   }),
 
-
   LOGIN_REQUEST: (state) => {
     return {
       ...state,
       isLoading: true,
-      
     };
   },
 
   LOGIN_SUCCESS: (state, action) => {
-    
     return {
       ...state,
       isAuthenticated: true,
       isLoading: false,
       user: action?.payload?.user ?? {},
+      finyear: action?.payload?.finyear ?? state.finyear,
+      finfromdate: action?.payload?.finfromdate ?? state.finfromdate,
+      fintodate: action?.payload?.fintodate ?? state.fintodate,
     };
   },
+
+  CHANGE_FINYEAR: (state, action) => ({
+    ...state,
+    finyear: action.payload.finyear,
+    finfromdate: action.payload.finfromdate,
+    fintodate: action.payload.fintodate,
+  }),
 
   LOGIN_ERROR: (state, action) => {
     const errorMessage = action?.payload ?? "Login failed";
@@ -86,24 +91,34 @@ export function AuthProvider({ children }) {
               parsedUser = JSON.parse(userData);
             } catch (err) {
               console.error("Invalid user data in localStorage", err);
-              localStorage.removeItem("user"); 
+              localStorage.removeItem("user");
             }
           }
-          
+
           dispatch({
             type: "INITIALIZE",
             payload: {
               isAuthenticated: true,
-               user: parsedUser,
+              user: parsedUser,
             },
           });
+
+          // Check for existing finyear in localStorage
+          const savedFinYear = localStorage.getItem("finyear");
+          if (savedFinYear) {
+            const { getFinYearDates } = await import("utils/financialYear");
+            const { finfromdate, fintodate } = getFinYearDates(savedFinYear);
+            dispatch({
+              type: "CHANGE_FINYEAR",
+              payload: { finyear: savedFinYear, finfromdate, fintodate },
+            });
+          }
         } else {
           dispatch({
             type: "INITIALIZE",
             payload: {
               isAuthenticated: false,
               user: null,
-          
             },
           });
         }
@@ -113,8 +128,7 @@ export function AuthProvider({ children }) {
           type: "INITIALIZE",
           payload: {
             isAuthenticated: false,
-             user: null,
-            
+            user: null,
           },
         });
       }
@@ -123,93 +137,116 @@ export function AuthProvider({ children }) {
     init();
   }, []);
 
-
-
   // ✅ Login function
   // This function handles user login, updates the context state, and manages local storage.
   const login = async ({ username, password, finyear }) => {
-  dispatch({ type: "LOGIN_REQUEST" });
+    dispatch({ type: "LOGIN_REQUEST" });
 
-  try {
-    const formData = new FormData();
-    formData.append("username", username);
-    formData.append("password", password);
-    formData.append("finyear", finyear);
-    const response = await axios.post("/login", formData);
+    try {
+      const formData = new FormData();
+      formData.append("username", username);
+      formData.append("password", password);
+      formData.append("finyear", finyear);
+      const response = await axios.post("/login", formData);
 
-    const { token, permissions, user } = response.data;
+      const { token, permissions, user } = response.data;
 
-    if (!isString(token)) {
-      throw new Error("Invalid token received");
-    }
-    
-    // Save token
-    // localStorage.setItem("authToken", token);
-    // localStorage.setItem("userPermissions", JSON.stringify(permissions));
-    // if (user && typeof user === "object") {
-    //     localStorage.setItem("user", JSON.stringify(user));
-    //   } else {
-    //     localStorage.removeItem("user"); // 🧹 fallback
-    //   }
-    // Save token
-localStorage.setItem("authToken", token);
-
-// Save permissions
-localStorage.setItem("userPermissions", JSON.stringify(permissions));
-
-// Decode token payload to get userId
-const payload = JSON.parse(atob(token.split(".")[1]));
-const userId = payload.sub;
-// console.log(userId);
-
-// Save userId in localStorage
-localStorage.setItem("userId", userId);
-
-// If you already have user object
-if (user && typeof user === "object") {
-  localStorage.setItem("user", JSON.stringify(user));
-} else {
-  localStorage.removeItem("user"); // fallback
-}
-
-    // console.log("✅ User data from API:", user);
-    
-
-    setSession(token); // optionally set default header
-
-    // ✅ Use actual user from response
-    dispatch({
-      type: "LOGIN_SUCCESS",
-      payload: { user },
-    });
-
-  } catch (err) {
-    dispatch({
-      type: "LOGIN_ERROR",
-      payload: err?.response?.data?.message || err?.message || "Login failed",
-    });
-
-    throw err;
-  }
-};
-
-    const logout = async () => {
-      try {
-        await axios.post("/logout");
-      } catch (error) {
-        console.error("Logout failed:", error);
-      } finally {
-        setSession(null);
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("userPermissions");
-        localStorage.removeItem("user");
-        window.history.replaceState({}, document.title, "/login"); // ✅ Clean URL BEFORE AuthGuard can read stale path
-        dispatch({ type: "LOGOUT" }); // ✅ Now logout from context
-      
-        // ✅ Reload the app to prevent stale route re-capture
-        // window.location.href = "/login?redirect="; // final clean reset
+      if (!isString(token)) {
+        throw new Error("Invalid token received");
       }
-    };
+
+      // Save token
+      // localStorage.setItem("authToken", token);
+      // localStorage.setItem("userPermissions", JSON.stringify(permissions));
+      // if (user && typeof user === "object") {
+      //     localStorage.setItem("user", JSON.stringify(user));
+      //   } else {
+      //     localStorage.removeItem("user"); // 🧹 fallback
+      //   }
+      // Save token
+      localStorage.setItem("authToken", token);
+
+      // Save permissions
+      localStorage.setItem("userPermissions", JSON.stringify(permissions));
+
+      // Decode token payload to get userId
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      const userId = payload.sub;
+      // console.log(userId);
+
+      // Save userId in localStorage
+      localStorage.setItem("userId", userId);
+
+      // If you already have user object
+      if (user && typeof user === "object") {
+        localStorage.setItem("user", JSON.stringify(user));
+      } else {
+        localStorage.removeItem("user"); // fallback
+      }
+
+      // console.log("✅ User data from API:", user);
+
+      // ✅ Use actual user from response
+      const { getFinYearDates } = await import("utils/financialYear");
+      const dates = getFinYearDates(finyear);
+      localStorage.setItem("finyear", finyear);
+
+      dispatch({
+        type: "LOGIN_SUCCESS",
+        payload: {
+          user,
+          finyear,
+          ...dates,
+        },
+      });
+    } catch (err) {
+      dispatch({
+        type: "LOGIN_ERROR",
+        payload: err?.response?.data?.message || err?.message || "Login failed",
+      });
+
+      throw err;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await axios.post("/logout");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      setSession(null);
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("userPermissions");
+      localStorage.removeItem("user");
+      localStorage.removeItem("finyear");
+      window.history.replaceState({}, document.title, "/login"); // ✅ Clean URL BEFORE AuthGuard can read stale path
+      dispatch({ type: "LOGOUT" }); // ✅ Now logout from context
+
+      // ✅ Reload the app to prevent stale route re-capture
+      // window.location.href = "/login?redirect="; // final clean reset
+    }
+  };
+
+  const changeFinYear = async (finyear) => {
+    try {
+      const formData = new FormData();
+      formData.append("finyear", finyear);
+      // Notifying backend. If this fails, we still continue with local update
+      await axios.post("/set-fin-year", formData).catch(() => {});
+
+      const { getFinYearDates } = await import("utils/financialYear");
+      const { finfromdate, fintodate } = getFinYearDates(finyear);
+      localStorage.setItem("finyear", finyear);
+
+      dispatch({
+        type: "CHANGE_FINYEAR",
+        payload: { finyear, finfromdate, fintodate },
+      });
+    } catch (err) {
+      console.error("Failed to set financial year:", err);
+    }
+  };
 
   if (!children) {
     return null;
@@ -221,6 +258,7 @@ if (user && typeof user === "object") {
         ...state,
         login,
         logout,
+        changeFinYear,
       }}
     >
       {children}
@@ -231,4 +269,3 @@ if (user && typeof user === "object") {
 AuthProvider.propTypes = {
   children: PropTypes.node,
 };
-

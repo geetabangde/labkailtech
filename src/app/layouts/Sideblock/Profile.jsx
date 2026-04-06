@@ -17,7 +17,7 @@ import { useAuthContext } from "app/contexts/auth/context";
 // ----------------------------------------------------------------------
 
 export function Profile() {
-  const { logout } = useAuthContext();
+  const { logout, user: authUser } = useAuthContext();
   const [profile, setProfile] = useState(null);
 
   useEffect(() => {
@@ -32,11 +32,17 @@ export function Profile() {
     fetchProfile();
   }, []);
 
-  const fullName = profile
-    ? [profile.prefix, profile.firstname, profile.lastname]
+  // Use the detailed profile if available, otherwise fall back to the user object from AuthContext
+  const displayData = profile || authUser;
+
+  const fullName = displayData
+    ? [displayData.prefix, displayData.firstname, displayData.lastname]
         .filter(Boolean)
-        .join(" ")
-    : "Guest";
+        .join(" ") ||
+      displayData.employee_name || // Support for PHP session style name
+      displayData.name ||
+      "User"
+    : "";
 
   const designation = profile?.designation || "";
 

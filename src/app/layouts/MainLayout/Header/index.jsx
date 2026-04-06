@@ -1,79 +1,72 @@
 // Import Dependencies
-import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 
 // Local Imports
-import SearchIcon from "assets/dualicons/search.svg?react";
 import { SidebarToggleBtn } from "components/shared/SidebarToggleBtn";
 import { Button } from "components/ui";
 import { Notifications } from "components/template/Notifications";
 import { RightSidebar } from "components/template/RightSidebar";
-import { Search } from "components/template/Search";
 import { useThemeContext } from "app/contexts/theme/context";
+import { useAuthContext } from "app/contexts/auth/context";
+import { getFinancialYears } from "utils/financialYear";
+import { useState, useEffect } from "react";
 
 // ----------------------------------------------------------------------
 
-function SlashIcon(props) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="22"
-      height="20"
-      aria-hidden="true"
-      {...props}
-    >
-      <path
-        fill="none"
-        stroke="currentColor"
-        d="M3.5.5h12c1.7 0 3 1.3 3 3v13c0 1.7-1.3 3-3 3h-12c-1.7 0-3-1.3-3-3v-13c0-1.7 1.3-3 3-3z"
-        opacity="0.4"
-      />
-      <path fill="currentColor" d="M11.8 6L8 15.1h-.9L10.8 6h1z" />
-    </svg>
-  );
-}
-
 export function Header() {
   const { cardSkin } = useThemeContext();
+  const { finyear, changeFinYear } = useAuthContext();
+  const [selectedFinYear, setSelectedFinYear] = useState(finyear);
+  const finYears = getFinancialYears();
+
+  useEffect(() => {
+    setSelectedFinYear(finyear);
+  }, [finyear]);
+
+  const handleSetFinYear = () => {
+    if (selectedFinYear && selectedFinYear !== finyear) {
+      changeFinYear(selectedFinYear);
+    }
+  };
 
   return (
     <header
       className={clsx(
-        "app-header transition-content sticky top-0 z-20 flex h-[65px] shrink-0 items-center justify-between border-b border-gray-200 bg-white/80 px-(--margin-x) backdrop-blur-sm backdrop-saturate-150 dark:border-dark-600",
+        "app-header transition-content dark:border-dark-600 sticky top-0 z-20 flex h-[65px] shrink-0 items-center justify-between border-b border-gray-200 bg-white/80 px-(--margin-x) backdrop-blur-sm backdrop-saturate-150",
         cardSkin === "shadow" ? "dark:bg-dark-750/80" : "dark:bg-dark-900/80",
       )}
     >
       <SidebarToggleBtn />
 
-      <div className="flex items-center gap-2 ltr:-mr-1.5 rtl:-ml-1.5">
-        <Search
-          renderButton={(open) => (
-            <>
-              <Button
-                onClick={open}
-                unstyled
-                className="h-8 w-64 justify-between gap-2 rounded-full border border-gray-200 px-3 text-xs-plus hover:border-gray-400 dark:border-dark-500 dark:hover:border-dark-400 max-sm:hidden"
-              >
-                <div className="flex items-center gap-2">
-                  <MagnifyingGlassIcon className="size-4" />
-                  <span className="text-gray-400 dark:text-dark-300">
-                    Search here...
-                  </span>
-                </div>
-                <SlashIcon />
-              </Button>
+      {/* Financial Year Selector - Centered Section */}
+      <div className="flex items-center gap-2">
+        <label className="dark:text-dark-200 text-sm font-semibold whitespace-nowrap text-gray-700">
+          Fin Year
+        </label>
+        <select
+          value={selectedFinYear || ""}
+          onChange={(e) => setSelectedFinYear(e.target.value)}
+          className="focus:border-primary-500 focus:ring-primary-500 dark:border-dark-500 dark:bg-dark-900 dark:text-dark-100 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm font-medium shadow-sm focus:ring-1 focus:outline-none"
+        >
+          {finYears.map((fy) => (
+            <option key={fy} value={fy}>
+              {fy}
+            </option>
+          ))}
+        </select>
+        <Button
+          size="sm"
+          variant="solid"
+          color="primary"
+          className="h-8 px-4 text-xs font-bold transition-all hover:scale-105 active:scale-95"
+          onClick={handleSetFinYear}
+          disabled={!selectedFinYear || selectedFinYear === finyear}
+        >
+          SET
+        </Button>
+      </div>
 
-              <Button
-                onClick={open}
-                variant="flat"
-                isIcon
-                className="relative size-9 rounded-full sm:hidden"
-              >
-                <SearchIcon className="size-6 text-gray-900 dark:text-dark-100" />
-              </Button>
-            </>
-          )}
-        />
+      <div className="flex items-center gap-2 ltr:-mr-1.5 rtl:-ml-1.5">
         <Notifications />
         <RightSidebar />
       </div>

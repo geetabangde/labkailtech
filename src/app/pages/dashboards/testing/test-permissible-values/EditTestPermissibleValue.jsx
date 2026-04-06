@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router";
 import { useState, useEffect } from "react";
-import Select from "react-select";
 import { Button, Input } from "components/ui";
+import Select from "react-select";
 import { Page } from "components/shared/Page";
 import axios from "utils/axios";
 import { toast } from "sonner";
@@ -241,7 +241,8 @@ export default function EditTestPermissibleValue() {
           fieldName !== "grades" &&
           fieldName !== "standards" &&
           fieldName !== "methods" &&
-          fieldName !== "clauses"
+          fieldName !== "clauses" &&
+          fieldName !== "sizes"
         ) {
           name = `${name} (${item.description})`;
         }
@@ -377,7 +378,7 @@ export default function EditTestPermissibleValue() {
         const result = response.data;
         console.log("📦 Record Response:", result);
 
-        // ✅ FIX: Flexible status handling
+        // Flexible status handling
         const isSuccess =
           result.status === true ||
           result.status === "true" ||
@@ -390,17 +391,23 @@ export default function EditTestPermissibleValue() {
           const data = result.data;
           console.log("📋 Raw record data:", data);
 
-          // ✅ CRITICAL FIX: Parse arrays and convert ALL values to strings
+          // ✅ CRITICAL FIX: Handle Arrays, Strings, and Numbers
           const parseArray = (value) => {
+            if (value === null || value === undefined || value === "") {
+              return [];
+            }
             if (Array.isArray(value)) {
-              // Convert each item to string
               return value.map((v) => String(v).trim());
             }
             if (typeof value === "string") {
-              // Split by comma and convert to strings
-              return value.split(",").map((v) => String(v).trim());
+              // If it's a comma-separated string, split it
+              if (value.includes(",")) {
+                return value.split(",").map((v) => String(v).trim());
+              }
+              return [value.trim()];
             }
-            return [];
+            // Handle numbers or other single values
+            return [String(value).trim()];
           };
 
           const parsedParameter = parseArray(data.parameter);
@@ -469,28 +476,21 @@ export default function EditTestPermissibleValue() {
   }, [id]);
 
   // Handle form field changes
-  const handleSelectChange = (selectedOption, fieldName) => {
-    setFormData((prev) => ({
-      ...prev,
-      [fieldName]: selectedOption ? selectedOption.value : "",
-    }));
-    if (errors[fieldName]) {
-      setErrors((prev) => ({ ...prev, [fieldName]: "" }));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
-  const handleArraySelectChange = (index, field, selectedOption) => {
+  // Handle array field changes
+  const handleArrayChange = (index, field, value) => {
     setFormData((prev) => {
       const updatedArray = [...prev[field]];
-      updatedArray[index] = selectedOption ? selectedOption.value : "";
+      updatedArray[index] = value;
       return { ...prev, [field]: updatedArray };
     });
-  };
-
-  // Helper function to get selected option object for react-select
-  const getSelectedOption = (value, options) => {
-    if (!value) return null;
-    return options.find((opt) => opt.value === String(value)) || null;
   };
 
   // Handle min/max value changes
@@ -716,33 +716,24 @@ export default function EditTestPermissibleValue() {
                 Product <span className="text-red-500">*</span>
               </label>
               <Select
-                name="product"
                 options={generateOptions(products, "products")}
-                value={getSelectedOption(
-                  formData.product,
-                  generateOptions(products, "products"),
-                )}
-                onChange={(option) => handleSelectChange(option, "product")}
+                value={
+                  generateOptions(products, "products").find(
+                    (opt) => opt.value == formData.product,
+                  ) || null
+                }
+                onChange={(option) =>
+                  handleChange({
+                    target: {
+                      name: "product",
+                      value: option ? option.value : "",
+                    },
+                  })
+                }
                 placeholder="Select Product"
-                className="react-select"
+                isSearchable
+                className="react-select-container"
                 classNamePrefix="react-select"
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    backgroundColor: "rgb(255 255 255 / 1)",
-                    borderColor: "rgb(209 213 219 / 1)",
-                    color: "rgb(17 24 39 / 1)",
-                  }),
-                  option: (base, state) => ({
-                    ...base,
-                    backgroundColor: state.isSelected
-                      ? "rgb(59 130 246 / 1)"
-                      : state.isFocused
-                        ? "rgb(219 234 254 / 1)"
-                        : "rgb(255 255 255 / 1)",
-                    color: state.isSelected ? "white" : "rgb(17 24 39 / 1)",
-                  }),
-                }}
               />
               {errors.product && (
                 <p className="mt-1 text-sm text-red-500">{errors.product}</p>
@@ -755,33 +746,24 @@ export default function EditTestPermissibleValue() {
                 Grade <span className="text-red-500">*</span>
               </label>
               <Select
-                name="grade"
                 options={generateOptions(grades, "grades")}
-                value={getSelectedOption(
-                  formData.grade,
-                  generateOptions(grades, "grades"),
-                )}
-                onChange={(option) => handleSelectChange(option, "grade")}
+                value={
+                  generateOptions(grades, "grades").find(
+                    (opt) => opt.value == formData.grade,
+                  ) || null
+                }
+                onChange={(option) =>
+                  handleChange({
+                    target: {
+                      name: "grade",
+                      value: option ? option.value : "",
+                    },
+                  })
+                }
                 placeholder="Select Grade"
-                className="react-select"
+                isSearchable
+                className="react-select-container"
                 classNamePrefix="react-select"
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    backgroundColor: "rgb(255 255 255 / 1)",
-                    borderColor: "rgb(209 213 219 / 1)",
-                    color: "rgb(17 24 39 / 1)",
-                  }),
-                  option: (base, state) => ({
-                    ...base,
-                    backgroundColor: state.isSelected
-                      ? "rgb(59 130 246 / 1)"
-                      : state.isFocused
-                        ? "rgb(219 234 254 / 1)"
-                        : "rgb(255 255 255 / 1)",
-                    color: state.isSelected ? "white" : "rgb(17 24 39 / 1)",
-                  }),
-                }}
               />
               {errors.grade && (
                 <p className="mt-1 text-sm text-red-500">{errors.grade}</p>
@@ -794,33 +776,21 @@ export default function EditTestPermissibleValue() {
                 Size <span className="text-red-500">*</span>
               </label>
               <Select
-                name="size"
                 options={generateOptions(sizes, "sizes")}
-                value={getSelectedOption(
-                  formData.size,
-                  generateOptions(sizes, "sizes"),
-                )}
-                onChange={(option) => handleSelectChange(option, "size")}
+                value={
+                  generateOptions(sizes, "sizes").find(
+                    (opt) => opt.value == formData.size,
+                  ) || null
+                }
+                onChange={(option) =>
+                  handleChange({
+                    target: { name: "size", value: option ? option.value : "" },
+                  })
+                }
                 placeholder="Select Size"
-                className="react-select"
+                isSearchable
+                className="react-select-container"
                 classNamePrefix="react-select"
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    backgroundColor: "rgb(255 255 255 / 1)",
-                    borderColor: "rgb(209 213 219 / 1)",
-                    color: "rgb(17 24 39 / 1)",
-                  }),
-                  option: (base, state) => ({
-                    ...base,
-                    backgroundColor: state.isSelected
-                      ? "rgb(59 130 246 / 1)"
-                      : state.isFocused
-                        ? "rgb(219 234 254 / 1)"
-                        : "rgb(255 255 255 / 1)",
-                    color: state.isSelected ? "white" : "rgb(17 24 39 / 1)",
-                  }),
-                }}
               />
               {errors.size && (
                 <p className="mt-1 text-sm text-red-500">{errors.size}</p>
@@ -833,33 +803,24 @@ export default function EditTestPermissibleValue() {
                 Standard <span className="text-red-500">*</span>
               </label>
               <Select
-                name="standard"
                 options={generateOptions(standards, "standards")}
-                value={getSelectedOption(
-                  formData.standard,
-                  generateOptions(standards, "standards"),
-                )}
-                onChange={(option) => handleSelectChange(option, "standard")}
+                value={
+                  generateOptions(standards, "standards").find(
+                    (opt) => opt.value == formData.standard,
+                  ) || null
+                }
+                onChange={(option) =>
+                  handleChange({
+                    target: {
+                      name: "standard",
+                      value: option ? option.value : "",
+                    },
+                  })
+                }
                 placeholder="Select Standard"
-                className="react-select"
+                isSearchable
+                className="react-select-container"
                 classNamePrefix="react-select"
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    backgroundColor: "rgb(255 255 255 / 1)",
-                    borderColor: "rgb(209 213 219 / 1)",
-                    color: "rgb(17 24 39 / 1)",
-                  }),
-                  option: (base, state) => ({
-                    ...base,
-                    backgroundColor: state.isSelected
-                      ? "rgb(59 130 246 / 1)"
-                      : state.isFocused
-                        ? "rgb(219 234 254 / 1)"
-                        : "rgb(255 255 255 / 1)",
-                    color: state.isSelected ? "white" : "rgb(17 24 39 / 1)",
-                  }),
-                }}
               />
               {errors.standard && (
                 <p className="mt-1 text-sm text-red-500">{errors.standard}</p>
@@ -913,37 +874,23 @@ export default function EditTestPermissibleValue() {
                       Parameter <span className="text-red-500">*</span>
                     </label>
                     <Select
-                      name={`parameter_${index}`}
                       options={generateOptions(parameters, "parameters")}
-                      value={getSelectedOption(
-                        formData.parameter[index],
-                        generateOptions(parameters, "parameters"),
-                      )}
+                      value={
+                        generateOptions(parameters, "parameters").find(
+                          (opt) => opt.value == formData.parameter[index],
+                        ) || null
+                      }
                       onChange={(option) =>
-                        handleArraySelectChange(index, "parameter", option)
+                        handleArrayChange(
+                          index,
+                          "parameter",
+                          option ? option.value : "",
+                        )
                       }
                       placeholder="Select Parameter"
-                      className="react-select"
+                      isSearchable
+                      className="react-select-container"
                       classNamePrefix="react-select"
-                      styles={{
-                        control: (base) => ({
-                          ...base,
-                          backgroundColor: "rgb(255 255 255 / 1)",
-                          borderColor: "rgb(209 213 219 / 1)",
-                          color: "rgb(17 24 39 / 1)",
-                        }),
-                        option: (base, state) => ({
-                          ...base,
-                          backgroundColor: state.isSelected
-                            ? "rgb(59 130 246 / 1)"
-                            : state.isFocused
-                              ? "rgb(219 234 254 / 1)"
-                              : "rgb(255 255 255 / 1)",
-                          color: state.isSelected
-                            ? "white"
-                            : "rgb(17 24 39 / 1)",
-                        }),
-                      }}
                     />
                     {errors[`parameter_${index}`] && (
                       <p className="mt-1 text-xs text-red-500">
@@ -958,37 +905,23 @@ export default function EditTestPermissibleValue() {
                       Method <span className="text-red-500">*</span>
                     </label>
                     <Select
-                      name={`method_${index}`}
                       options={generateOptions(methods, "methods")}
-                      value={getSelectedOption(
-                        formData.method[index],
-                        generateOptions(methods, "methods"),
-                      )}
+                      value={
+                        generateOptions(methods, "methods").find(
+                          (opt) => opt.value == formData.method[index],
+                        ) || null
+                      }
                       onChange={(option) =>
-                        handleArraySelectChange(index, "method", option)
+                        handleArrayChange(
+                          index,
+                          "method",
+                          option ? option.value : "",
+                        )
                       }
                       placeholder="Select Method"
-                      className="react-select"
+                      isSearchable
+                      className="react-select-container"
                       classNamePrefix="react-select"
-                      styles={{
-                        control: (base) => ({
-                          ...base,
-                          backgroundColor: "rgb(255 255 255 / 1)",
-                          borderColor: "rgb(209 213 219 / 1)",
-                          color: "rgb(17 24 39 / 1)",
-                        }),
-                        option: (base, state) => ({
-                          ...base,
-                          backgroundColor: state.isSelected
-                            ? "rgb(59 130 246 / 1)"
-                            : state.isFocused
-                              ? "rgb(219 234 254 / 1)"
-                              : "rgb(255 255 255 / 1)",
-                          color: state.isSelected
-                            ? "white"
-                            : "rgb(17 24 39 / 1)",
-                        }),
-                      }}
                     />
                     {errors[`method_${index}`] && (
                       <p className="mt-1 text-xs text-red-500">
@@ -1003,37 +936,23 @@ export default function EditTestPermissibleValue() {
                       Clause
                     </label>
                     <Select
-                      name={`clause_${index}`}
                       options={generateOptions(clauses, "clauses")}
-                      value={getSelectedOption(
-                        formData.clause[index],
-                        generateOptions(clauses, "clauses"),
-                      )}
+                      value={
+                        generateOptions(clauses, "clauses").find(
+                          (opt) => opt.value == formData.clause[index],
+                        ) || null
+                      }
                       onChange={(option) =>
-                        handleArraySelectChange(index, "clause", option)
+                        handleArrayChange(
+                          index,
+                          "clause",
+                          option ? option.value : "",
+                        )
                       }
                       placeholder="Select Clause"
-                      className="react-select"
+                      isSearchable
+                      className="react-select-container"
                       classNamePrefix="react-select"
-                      styles={{
-                        control: (base) => ({
-                          ...base,
-                          backgroundColor: "rgb(255 255 255 / 1)",
-                          borderColor: "rgb(209 213 219 / 1)",
-                          color: "rgb(17 24 39 / 1)",
-                        }),
-                        option: (base, state) => ({
-                          ...base,
-                          backgroundColor: state.isSelected
-                            ? "rgb(59 130 246 / 1)"
-                            : state.isFocused
-                              ? "rgb(219 234 254 / 1)"
-                              : "rgb(255 255 255 / 1)",
-                          color: state.isSelected
-                            ? "white"
-                            : "rgb(17 24 39 / 1)",
-                        }),
-                      }}
                     />
                   </div>
 
@@ -1041,8 +960,7 @@ export default function EditTestPermissibleValue() {
                   <div>
                     <Input
                       label="Min Value"
-                      type="number"
-                      step="0.01"
+                      type="text" // Changed to text to match PHP flexibility (e.g. "< 0.5")
                       value={formData.pvaluemin[index] || ""}
                       onChange={(e) =>
                         handleParameterValueChange(index, "min", e.target.value)
@@ -1055,8 +973,7 @@ export default function EditTestPermissibleValue() {
                   <div>
                     <Input
                       label="Max Value"
-                      type="number"
-                      step="0.01"
+                      type="text" // Changed to text to match PHP flexibility
                       value={formData.pvaluemax[index] || ""}
                       onChange={(e) =>
                         handleParameterValueChange(index, "max", e.target.value)
