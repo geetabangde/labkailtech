@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router";
 import { useState, useEffect, useCallback } from "react";
+import Select from "react-select";
 import { Button, Input } from "components/ui";
 import { Page } from "components/shared/Page";
 import axios from "utils/axios";
@@ -21,7 +22,7 @@ export default function AddTestPermissibleValue() {
     pvaluemax: [],
     specification: [],
     added_by: 31,
-    updated_by: 31
+    updated_by: 31,
   });
 
   // Dropdown data states
@@ -32,10 +33,10 @@ export default function AddTestPermissibleValue() {
   const [parameters, setParameters] = useState([]);
   const [methods, setMethods] = useState([]);
   const [clauses, setClauses] = useState([]);
-  
+
   // Dynamic parameter inputs
   const [parameterInputs, setParameterInputs] = useState([{ id: 1 }]);
-  
+
   // Loading states
   const [loading, setLoading] = useState(false);
   const [dropdownLoading, setDropdownLoading] = useState({
@@ -45,7 +46,7 @@ export default function AddTestPermissibleValue() {
     standards: true,
     parameters: true,
     methods: true,
-    clauses: true
+    clauses: true,
   });
 
   // Error states
@@ -54,48 +55,76 @@ export default function AddTestPermissibleValue() {
   // ✅ IMPROVED: Better response extraction matching PHP logic
   const extractArrayFromResponse = (responseData) => {
     console.log("🔍 Raw API Response:", responseData);
-    
+
     // Handle different response structures
-    if (responseData && typeof responseData === 'object') {
+    if (responseData && typeof responseData === "object") {
       // Check for data property (most common)
       if (responseData.data) {
         if (Array.isArray(responseData.data)) {
-          console.log("✅ Found array in .data:", responseData.data.length, "items");
+          console.log(
+            "✅ Found array in .data:",
+            responseData.data.length,
+            "items",
+          );
           // Log first item structure for debugging
           if (responseData.data.length > 0) {
-            console.log("   First item structure:", Object.keys(responseData.data[0]));
+            console.log(
+              "   First item structure:",
+              Object.keys(responseData.data[0]),
+            );
           }
           return responseData.data;
         }
         // Sometimes data is wrapped again
         if (responseData.data.data && Array.isArray(responseData.data.data)) {
-          console.log("✅ Found array in .data.data:", responseData.data.data.length, "items");
+          console.log(
+            "✅ Found array in .data.data:",
+            responseData.data.data.length,
+            "items",
+          );
           if (responseData.data.data.length > 0) {
-            console.log("   First item structure:", Object.keys(responseData.data.data[0]));
+            console.log(
+              "   First item structure:",
+              Object.keys(responseData.data.data[0]),
+            );
           }
           return responseData.data.data;
         }
       }
-      
+
       // Check for items property
       if (Array.isArray(responseData.items)) {
-        console.log("✅ Found array in .items:", responseData.items.length, "items");
+        console.log(
+          "✅ Found array in .items:",
+          responseData.items.length,
+          "items",
+        );
         if (responseData.items.length > 0) {
-          console.log("   First item structure:", Object.keys(responseData.items[0]));
+          console.log(
+            "   First item structure:",
+            Object.keys(responseData.items[0]),
+          );
         }
         return responseData.items;
       }
-      
+
       // Check for results property
       if (Array.isArray(responseData.results)) {
-        console.log("✅ Found array in .results:", responseData.results.length, "items");
+        console.log(
+          "✅ Found array in .results:",
+          responseData.results.length,
+          "items",
+        );
         if (responseData.results.length > 0) {
-          console.log("   First item structure:", Object.keys(responseData.results[0]));
+          console.log(
+            "   First item structure:",
+            Object.keys(responseData.results[0]),
+          );
         }
         return responseData.results;
       }
     }
-    
+
     // If already an array
     if (Array.isArray(responseData)) {
       console.log("✅ Already an array:", responseData.length, "items");
@@ -104,135 +133,157 @@ export default function AddTestPermissibleValue() {
       }
       return responseData;
     }
-    
+
     console.warn("⚠️ Could not extract array, returning empty array");
     return [];
   };
 
   // ✅ FIXED: Generate options matching PHP logic (status=1 filter)
-  const generateOptions = (dataArray, fieldName = 'unknown') => {
-    console.log(`📋 Generating options for ${fieldName}:`, dataArray?.length || 0, "items");
-    
+  const generateOptions = (dataArray, fieldName = "unknown") => {
+    console.log(
+      `📋 Generating options for ${fieldName}:`,
+      dataArray?.length || 0,
+      "items",
+    );
+
     if (!Array.isArray(dataArray) || dataArray.length === 0) {
       console.warn(`⚠️ ${fieldName}: No data available`);
       return [];
     }
-    
+
     // PHP uses: status=1 filter
     // Filter only active items (status === 1 or status === "1")
     const options = dataArray
-      .filter(item => {
+      .filter((item) => {
         // Skip if no item
-        if (!item || typeof item !== 'object') return false;
-        
+        if (!item || typeof item !== "object") return false;
+
         // If no status field, include the item (default behavior)
-        if (!Object.prototype.hasOwnProperty.call(item, 'status')) {
+        if (!Object.prototype.hasOwnProperty.call(item, "status")) {
           return true;
         }
-        
+
         // ✅ FIXED: Match PHP logic - status=1 for active
         const status = item.status;
-        const isActive = status === 1 || 
-                        status === '1' || 
-                        status === true ||
-                        status === 'true' ||
-                        status === 99 ||  // Keep this as fallback
-                        status === '99';
-        
+        const isActive =
+          status === 1 ||
+          status === "1" ||
+          status === true ||
+          status === "true" ||
+          status === 99 || // Keep this as fallback
+          status === "99";
+
         if (!isActive) {
-          console.log(`⏭️ Skipping inactive (status=${status}):`, item.name || item.id);
+          console.log(
+            `⏭️ Skipping inactive (status=${status}):`,
+            item.name || item.id,
+          );
         }
-        
+
         return isActive;
       })
-      .map(item => {
+      .map((item) => {
         // ✅ FIXED: Match PHP structure for value/label extraction with multiple fallbacks
         // PHP shows: name(description) for products, sizes, parameters
         // PHP shows: just name for others
-        
+
         const id = item.id || item.ID || item.Id || item.value;
-        
+
         // 🔧 CRITICAL FIX: Multiple fallbacks for name field
         // Try different possible field names in order of priority
-        let name = item.name || 
-                   item.Name || 
-                   item.method_name ||  // Fallback for methods
-                   item.parameter_name ||  // Fallback for parameters
-                   item.grade_name ||  // Fallback for grades
-                   item.label || 
-                   item.title ||
-                   item.text ||
-                   '';
-        
+        let name =
+          item.name ||
+          item.Name ||
+          item.method_name || // Fallback for methods
+          item.parameter_name || // Fallback for parameters
+          item.grade_name || // Fallback for grades
+          item.label ||
+          item.title ||
+          item.text ||
+          "";
+
         // If still empty, try using description as name
         if (!name && item.description) {
           name = item.description;
         }
-        
+
         // If still empty, use the ID as fallback (better than empty)
         if (!name && id) {
           name = `Item ${id}`;
-          console.warn(`⚠️ No name found for ${fieldName} item ${id}, using ID as fallback`);
+          console.warn(
+            `⚠️ No name found for ${fieldName} item ${id}, using ID as fallback`,
+          );
         }
-        
+
         // Add description in parentheses if available (like PHP does)
         // But only if name and description are different
-        if (item.description && 
-            item.description.trim() !== '' && 
-            item.description !== name &&  // Don't duplicate if description was used as name
-            fieldName !== 'grades' && 
-            fieldName !== 'standards' && 
-            fieldName !== 'methods' && 
-            fieldName !== 'clauses') {
+        if (
+          item.description &&
+          item.description.trim() !== "" &&
+          item.description !== name && // Don't duplicate if description was used as name
+          fieldName !== "grades" &&
+          fieldName !== "standards" &&
+          fieldName !== "methods" &&
+          fieldName !== "clauses"
+        ) {
           name = `${name} (${item.description})`;
         }
-        
+
         // Ensure we return proper string values
-        const value = id !== undefined && id !== null ? String(id) : '';
-        const label = name ? String(name).trim() : '';
-        
+        const value = id !== undefined && id !== null ? String(id) : "";
+        const label = name ? String(name).trim() : "";
+
         // Log problematic items for debugging
         if (!label && value) {
-          console.warn(`⚠️ Item with ID ${value} in ${fieldName} has no label. Raw item:`, item);
+          console.warn(
+            `⚠️ Item with ID ${value} in ${fieldName} has no label. Raw item:`,
+            item,
+          );
         }
-        
+
         return { value, label };
       })
-      .filter(option => {
+      .filter((option) => {
         // Remove invalid options with better validation
-        const hasValidValue = option.value && 
-                             option.value !== '' &&
-                             option.value !== 'undefined' && 
-                             option.value !== 'null';
-        
-        const hasValidLabel = option.label && 
-                             option.label !== '' &&
-                             option.label !== 'undefined' &&
-                             option.label !== 'null';
-        
+        const hasValidValue =
+          option.value &&
+          option.value !== "" &&
+          option.value !== "undefined" &&
+          option.value !== "null";
+
+        const hasValidLabel =
+          option.label &&
+          option.label !== "" &&
+          option.label !== "undefined" &&
+          option.label !== "null";
+
         const isValid = hasValidValue && hasValidLabel;
-        
+
         if (!isValid) {
-          console.warn(`⚠️ Filtering invalid option for ${fieldName}:`, 
-            JSON.stringify({ value: option.value, label: option.label }));
+          console.warn(
+            `⚠️ Filtering invalid option for ${fieldName}:`,
+            JSON.stringify({ value: option.value, label: option.label }),
+          );
         }
-        
+
         return isValid;
       });
-    
-    console.log(`✅ Generated ${options.length} valid options for ${fieldName}`);
+
+    console.log(
+      `✅ Generated ${options.length} valid options for ${fieldName}`,
+    );
     if (options.length > 0) {
       console.log(`   First option:`, options[0]);
       console.log(`   Sample options (first 3):`, options.slice(0, 3));
     }
-    
+
     return options;
   };
 
   // ✅ IMPROVED: Fetch dropdown data with better error handling
   const fetchDropdownData = useCallback(async () => {
     console.log("🔄 Starting to fetch all dropdown data...");
-    
+
     try {
       // Fetch all data in parallel
       const [
@@ -242,7 +293,7 @@ export default function AddTestPermissibleValue() {
         standardsRes,
         parametersRes,
         methodsRes,
-        clausesRes
+        clausesRes,
       ] = await Promise.allSettled([
         axios.get("/testing/get-prodcut-list"),
         axios.get("/testing/get-grades"),
@@ -250,19 +301,19 @@ export default function AddTestPermissibleValue() {
         axios.get("/testing/get-standards"),
         axios.get("/testing/get-perameter-list"),
         axios.get("/testing/get-methods"),
-        axios.get("/testing/get-clauses")
+        axios.get("/testing/get-clauses"),
       ]);
 
       // Process each response
       const processResponse = (response, setter, name) => {
-        setDropdownLoading(prev => ({ ...prev, [name.toLowerCase()]: true }));
-        
-        if (response.status === 'fulfilled') {
+        setDropdownLoading((prev) => ({ ...prev, [name.toLowerCase()]: true }));
+
+        if (response.status === "fulfilled") {
           console.log(`\n📦 ${name} Response:`, response.value);
-          
+
           const extractedData = extractArrayFromResponse(response.value.data);
           console.log(`   Extracted ${extractedData.length} items`);
-          
+
           if (extractedData.length > 0) {
             setter(extractedData);
             console.log(`✅ ${name} loaded successfully`);
@@ -275,24 +326,26 @@ export default function AddTestPermissibleValue() {
           setter([]);
           toast.error(`Failed to load ${name}`);
         }
-        
-        setDropdownLoading(prev => ({ ...prev, [name.toLowerCase()]: false }));
+
+        setDropdownLoading((prev) => ({
+          ...prev,
+          [name.toLowerCase()]: false,
+        }));
       };
 
-      processResponse(productsRes, setProducts, 'Products');
-      processResponse(gradesRes, setGrades, 'Grades');
-      processResponse(sizesRes, setSizes, 'Sizes');
-      processResponse(standardsRes, setStandards, 'Standards');
-      processResponse(parametersRes, setParameters, 'Parameters');
-      processResponse(methodsRes, setMethods, 'Methods');
-      processResponse(clausesRes, setClauses, 'Clauses');
+      processResponse(productsRes, setProducts, "Products");
+      processResponse(gradesRes, setGrades, "Grades");
+      processResponse(sizesRes, setSizes, "Sizes");
+      processResponse(standardsRes, setStandards, "Standards");
+      processResponse(parametersRes, setParameters, "Parameters");
+      processResponse(methodsRes, setMethods, "Methods");
+      processResponse(clausesRes, setClauses, "Clauses");
 
       console.log("\n✅ All dropdown data fetch completed");
-
     } catch (error) {
       console.error("❌ Critical error fetching dropdown data:", error);
       toast.error("Failed to load form data");
-      
+
       // Reset all to empty arrays
       setProducts([]);
       setGrades([]);
@@ -301,7 +354,7 @@ export default function AddTestPermissibleValue() {
       setParameters([]);
       setMethods([]);
       setClauses([]);
-      
+
       // Set all loading to false
       setDropdownLoading({
         products: false,
@@ -310,7 +363,7 @@ export default function AddTestPermissibleValue() {
         standards: false,
         parameters: false,
         methods: false,
-        clauses: false
+        clauses: false,
       });
     }
   }, []);
@@ -329,32 +382,39 @@ export default function AddTestPermissibleValue() {
       standards: `${standards.length} items`,
       parameters: `${parameters.length} items`,
       methods: `${methods.length} items`,
-      clauses: `${clauses.length} items`
+      clauses: `${clauses.length} items`,
     });
   }, [products, grades, sizes, standards, parameters, methods, clauses]);
 
-  // Handle form field changes
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: "" }));
+  // Handle form field changes (for react-select dropdowns)
+  const handleSelectChange = (selectedOption, fieldName) => {
+    setFormData((prev) => ({
+      ...prev,
+      [fieldName]: selectedOption ? selectedOption.value : "",
+    }));
+    if (errors[fieldName]) {
+      setErrors((prev) => ({ ...prev, [fieldName]: "" }));
     }
   };
 
-  // Handle array field changes
-  const handleArrayChange = (index, field, value) => {
-    setFormData(prev => {
+  const handleArraySelectChange = (index, field, selectedOption) => {
+    setFormData((prev) => {
       const updatedArray = [...prev[field]];
-      updatedArray[index] = value;
+      updatedArray[index] = selectedOption ? selectedOption.value : "";
       return { ...prev, [field]: updatedArray };
     });
   };
 
+  // Helper function to get selected option object for react-select
+  const getSelectedOption = (value, options) => {
+    if (!value) return null;
+    return options.find((opt) => opt.value === String(value)) || null;
+  };
+
   // Handle min/max value changes
   const handleParameterValueChange = (index, type, value) => {
-    const field = type === 'min' ? 'pvaluemin' : 'pvaluemax';
-    setFormData(prev => {
+    const field = type === "min" ? "pvaluemin" : "pvaluemax";
+    setFormData((prev) => {
       const updatedArray = [...prev[field]];
       updatedArray[index] = value;
       return { ...prev, [field]: updatedArray };
@@ -363,7 +423,7 @@ export default function AddTestPermissibleValue() {
 
   // Handle specification changes
   const handleSpecificationChange = (index, value) => {
-    setFormData(prev => {
+    setFormData((prev) => {
       const updatedArray = [...prev.specification];
       updatedArray[index] = value;
       return { ...prev, specification: updatedArray };
@@ -373,16 +433,16 @@ export default function AddTestPermissibleValue() {
   // Add parameter row
   const addParameterRow = () => {
     const newId = parameterInputs.length + 1;
-    setParameterInputs(prev => [...prev, { id: newId }]);
-    
-    setFormData(prev => ({
+    setParameterInputs((prev) => [...prev, { id: newId }]);
+
+    setFormData((prev) => ({
       ...prev,
       parameter: [...prev.parameter, ""],
       method: [...prev.method, ""],
       clause: [...prev.clause, ""],
       pvaluemin: [...prev.pvaluemin, ""],
       pvaluemax: [...prev.pvaluemax, ""],
-      specification: [...prev.specification, ""]
+      specification: [...prev.specification, ""],
     }));
   };
 
@@ -393,11 +453,18 @@ export default function AddTestPermissibleValue() {
       return;
     }
 
-    setParameterInputs(prev => prev.filter((_, i) => i !== index));
-    
-    setFormData(prev => {
+    setParameterInputs((prev) => prev.filter((_, i) => i !== index));
+
+    setFormData((prev) => {
       const newFormData = { ...prev };
-      ['parameter', 'method', 'clause', 'pvaluemin', 'pvaluemax', 'specification'].forEach(key => {
+      [
+        "parameter",
+        "method",
+        "clause",
+        "pvaluemin",
+        "pvaluemax",
+        "specification",
+      ].forEach((key) => {
         newFormData[key] = newFormData[key].filter((_, i) => i !== index);
       });
       return newFormData;
@@ -407,9 +474,9 @@ export default function AddTestPermissibleValue() {
   // Form validation
   const validateForm = () => {
     const newErrors = {};
-    
-    const requiredFields = ['product', 'grade', 'size', 'standard'];
-    requiredFields.forEach(field => {
+
+    const requiredFields = ["product", "grade", "size", "standard"];
+    requiredFields.forEach((field) => {
       if (!formData[field]) {
         newErrors[field] = "This field is required";
       }
@@ -430,7 +497,8 @@ export default function AddTestPermissibleValue() {
     formData.pvaluemin.forEach((min, index) => {
       const max = formData.pvaluemax[index];
       if (min && max && parseFloat(min) > parseFloat(max)) {
-        newErrors[`value_${index}`] = "Min value cannot be greater than max value";
+        newErrors[`value_${index}`] =
+          "Min value cannot be greater than max value";
       }
     });
 
@@ -441,7 +509,7 @@ export default function AddTestPermissibleValue() {
   // Form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       toast.error("Please fix form errors before submitting");
       return;
@@ -451,10 +519,10 @@ export default function AddTestPermissibleValue() {
 
     try {
       const formDataToSend = new FormData();
-      
-      Object.keys(formData).forEach(key => {
+
+      Object.keys(formData).forEach((key) => {
         if (Array.isArray(formData[key])) {
-          formData[key].forEach(value => {
+          formData[key].forEach((value) => {
             formDataToSend.append(`${key}[]`, value);
           });
         } else {
@@ -462,7 +530,10 @@ export default function AddTestPermissibleValue() {
         }
       });
 
-      const response = await axios.post("/testing/add-permissible-value", formDataToSend);
+      const response = await axios.post(
+        "/testing/add-permissible-value",
+        formDataToSend,
+      );
       const result = response.data;
       const newId = result?.data?.id || result?.id;
 
@@ -471,16 +542,16 @@ export default function AddTestPermissibleValue() {
       });
 
       setTimeout(() => {
-        navigate("/dashboards/testing/test-permissible-values", { 
-          state: { updatedId: newId } 
+        navigate("/dashboards/testing/test-permissible-values", {
+          state: { updatedId: newId },
         });
       }, 1500);
-
     } catch (err) {
       console.error("Error creating permissible value:", err);
-      const errorMessage = err?.response?.data?.message || 
-                          err?.response?.data?.error || 
-                          "Failed to create test permissible value";
+      const errorMessage =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        "Failed to create test permissible value";
       toast.error(errorMessage + " ❌");
     } finally {
       setLoading(false);
@@ -491,163 +562,224 @@ export default function AddTestPermissibleValue() {
     <Page title="Add Test Permissible Value">
       <div className="p-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
             Add Test Permissible Value
           </h2>
           <Button
             variant="outline"
-            className="text-white bg-blue-600 hover:bg-blue-700"
-            onClick={() => navigate("/dashboards/testing/test-permissible-values")}
+            className="bg-blue-600 text-white hover:bg-blue-700"
+            onClick={() =>
+              navigate("/dashboards/testing/test-permissible-values")
+            }
           >
             ← Back to List
           </Button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6 bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-6 rounded-lg bg-white p-6 shadow dark:bg-gray-800"
+        >
           {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {/* Product */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Product <span className="text-red-500">*</span>
               </label>
-              <select
+              <Select
                 name="product"
-                value={formData.product}
-                onChange={handleChange}
-                disabled={dropdownLoading.products}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 
-                         bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                         focus:outline-none focus:ring-2 focus:ring-blue-500
-                         disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="">
-                  {dropdownLoading.products ? "Loading..." : "Select Product"}
-                </option>
-                {generateOptions(products, 'products').map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                options={generateOptions(products, "products")}
+                value={getSelectedOption(
+                  formData.product,
+                  generateOptions(products, "products"),
+                )}
+                onChange={(option) => handleSelectChange(option, "product")}
+                isDisabled={dropdownLoading.products}
+                isLoading={dropdownLoading.products}
+                placeholder="Select Product"
+                className="react-select"
+                classNamePrefix="react-select"
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    backgroundColor: "rgb(255 255 255 / 1)",
+                    borderColor: "rgb(209 213 219 / 1)",
+                    color: "rgb(17 24 39 / 1)",
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isSelected
+                      ? "rgb(59 130 246 / 1)"
+                      : state.isFocused
+                        ? "rgb(219 234 254 / 1)"
+                        : "rgb(255 255 255 / 1)",
+                    color: state.isSelected ? "white" : "rgb(17 24 39 / 1)",
+                  }),
+                }}
+              />
               {errors.product && (
-                <p className="text-red-500 text-sm mt-1">{errors.product}</p>
+                <p className="mt-1 text-sm text-red-500">{errors.product}</p>
               )}
               {!dropdownLoading.products && (
-                <p className={`text-xs mt-1 ${products.length > 0 ? 'text-green-600' : 'text-yellow-600'}`}>
-                  {products.length > 0 
-                    ? `${generateOptions(products, 'products').length} products available ✓` 
-                    : 'No products available'}
+                <p
+                  className={`mt-1 text-xs ${products.length > 0 ? "text-green-600" : "text-yellow-600"}`}
+                >
+                  {products.length > 0
+                    ? `${generateOptions(products, "products").length} products available ✓`
+                    : "No products available"}
                 </p>
               )}
             </div>
 
             {/* Grade */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Grade <span className="text-red-500">*</span>
               </label>
-              <select
+              <Select
                 name="grade"
-                value={formData.grade}
-                onChange={handleChange}
-                disabled={dropdownLoading.grades}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 
-                         bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                         focus:outline-none focus:ring-2 focus:ring-blue-500
-                         disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="">
-                  {dropdownLoading.grades ? "Loading..." : "Select Grade"}
-                </option>
-                {generateOptions(grades, 'grades').map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                options={generateOptions(grades, "grades")}
+                value={getSelectedOption(
+                  formData.grade,
+                  generateOptions(grades, "grades"),
+                )}
+                onChange={(option) => handleSelectChange(option, "grade")}
+                isDisabled={dropdownLoading.grades}
+                isLoading={dropdownLoading.grades}
+                placeholder="Select Grade"
+                className="react-select"
+                classNamePrefix="react-select"
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    backgroundColor: "rgb(255 255 255 / 1)",
+                    borderColor: "rgb(209 213 219 / 1)",
+                    color: "rgb(17 24 39 / 1)",
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isSelected
+                      ? "rgb(59 130 246 / 1)"
+                      : state.isFocused
+                        ? "rgb(219 234 254 / 1)"
+                        : "rgb(255 255 255 / 1)",
+                    color: state.isSelected ? "white" : "rgb(17 24 39 / 1)",
+                  }),
+                }}
+              />
               {errors.grade && (
-                <p className="text-red-500 text-sm mt-1">{errors.grade}</p>
+                <p className="mt-1 text-sm text-red-500">{errors.grade}</p>
               )}
               {!dropdownLoading.grades && (
-                <p className={`text-xs mt-1 ${grades.length > 0 ? 'text-green-600' : 'text-yellow-600'}`}>
-                  {grades.length > 0 
-                    ? `${generateOptions(grades, 'grades').length} grades available ✓` 
-                    : 'No grades available'}
+                <p
+                  className={`mt-1 text-xs ${grades.length > 0 ? "text-green-600" : "text-yellow-600"}`}
+                >
+                  {grades.length > 0
+                    ? `${generateOptions(grades, "grades").length} grades available ✓`
+                    : "No grades available"}
                 </p>
               )}
             </div>
 
             {/* Size */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Size <span className="text-red-500">*</span>
               </label>
-              <select
+              <Select
                 name="size"
-                value={formData.size}
-                onChange={handleChange}
-                disabled={dropdownLoading.sizes}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 
-                         bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                         focus:outline-none focus:ring-2 focus:ring-blue-500
-                         disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="">
-                  {dropdownLoading.sizes ? "Loading..." : "Select Size"}
-                </option>
-                {generateOptions(sizes, 'sizes').map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                options={generateOptions(sizes, "sizes")}
+                value={getSelectedOption(
+                  formData.size,
+                  generateOptions(sizes, "sizes"),
+                )}
+                onChange={(option) => handleSelectChange(option, "size")}
+                isDisabled={dropdownLoading.sizes}
+                isLoading={dropdownLoading.sizes}
+                placeholder="Select Size"
+                className="react-select"
+                classNamePrefix="react-select"
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    backgroundColor: "rgb(255 255 255 / 1)",
+                    borderColor: "rgb(209 213 219 / 1)",
+                    color: "rgb(17 24 39 / 1)",
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isSelected
+                      ? "rgb(59 130 246 / 1)"
+                      : state.isFocused
+                        ? "rgb(219 234 254 / 1)"
+                        : "rgb(255 255 255 / 1)",
+                    color: state.isSelected ? "white" : "rgb(17 24 39 / 1)",
+                  }),
+                }}
+              />
               {errors.size && (
-                <p className="text-red-500 text-sm mt-1">{errors.size}</p>
+                <p className="mt-1 text-sm text-red-500">{errors.size}</p>
               )}
               {!dropdownLoading.sizes && (
-                <p className={`text-xs mt-1 ${sizes.length > 0 ? 'text-green-600' : 'text-yellow-600'}`}>
-                  {sizes.length > 0 
-                    ? `${generateOptions(sizes, 'sizes').length} sizes available ✓` 
-                    : 'No sizes available'}
+                <p
+                  className={`mt-1 text-xs ${sizes.length > 0 ? "text-green-600" : "text-yellow-600"}`}
+                >
+                  {sizes.length > 0
+                    ? `${generateOptions(sizes, "sizes").length} sizes available ✓`
+                    : "No sizes available"}
                 </p>
               )}
             </div>
 
             {/* Standard */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Standard <span className="text-red-500">*</span>
               </label>
-              <select
+              <Select
                 name="standard"
-                value={formData.standard}
-                onChange={handleChange}
-                disabled={dropdownLoading.standards}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 
-                         bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                         focus:outline-none focus:ring-2 focus:ring-blue-500
-                         disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="">
-                  {dropdownLoading.standards ? "Loading..." : "Select Standard"}
-                </option>
-                {generateOptions(standards, 'standards').map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                options={generateOptions(standards, "standards")}
+                value={getSelectedOption(
+                  formData.standard,
+                  generateOptions(standards, "standards"),
+                )}
+                onChange={(option) => handleSelectChange(option, "standard")}
+                isDisabled={dropdownLoading.standards}
+                isLoading={dropdownLoading.standards}
+                placeholder="Select Standard"
+                className="react-select"
+                classNamePrefix="react-select"
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    backgroundColor: "rgb(255 255 255 / 1)",
+                    borderColor: "rgb(209 213 219 / 1)",
+                    color: "rgb(17 24 39 / 1)",
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isSelected
+                      ? "rgb(59 130 246 / 1)"
+                      : state.isFocused
+                        ? "rgb(219 234 254 / 1)"
+                        : "rgb(255 255 255 / 1)",
+                    color: state.isSelected ? "white" : "rgb(17 24 39 / 1)",
+                  }),
+                }}
+              />
               {errors.standard && (
-                <p className="text-red-500 text-sm mt-1">{errors.standard}</p>
+                <p className="mt-1 text-sm text-red-500">{errors.standard}</p>
               )}
               {!dropdownLoading.standards && (
-                <p className={`text-xs mt-1 ${standards.length > 0 ? 'text-green-600' : 'text-yellow-600'}`}>
-                  {standards.length > 0 
-                    ? `${generateOptions(standards, 'standards').length} standards available ✓` 
-                    : 'No standards available'}
+                <p
+                  className={`mt-1 text-xs ${standards.length > 0 ? "text-green-600" : "text-yellow-600"}`}
+                >
+                  {standards.length > 0
+                    ? `${generateOptions(standards, "standards").length} standards available ✓`
+                    : "No standards available"}
                 </p>
               )}
             </div>
@@ -655,7 +787,7 @@ export default function AddTestPermissibleValue() {
 
           {/* Parameters Section */}
           <div className="border-t pt-6">
-            <div className="flex justify-between items-center mb-4">
+            <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
                 Parameters
               </h3>
@@ -671,8 +803,11 @@ export default function AddTestPermissibleValue() {
             </div>
 
             {parameterInputs.map((row, index) => (
-              <div key={row.id} className="border p-4 rounded-lg mb-4 bg-gray-50 dark:bg-gray-700">
-                <div className="flex justify-between items-center mb-4">
+              <div
+                key={row.id}
+                className="mb-4 rounded-lg border bg-gray-50 p-4 dark:bg-gray-700"
+              >
+                <div className="mb-4 flex items-center justify-between">
                   <span className="font-medium text-gray-700 dark:text-gray-300">
                     Parameter #{index + 1}
                   </span>
@@ -689,86 +824,141 @@ export default function AddTestPermissibleValue() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {/* Parameter */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Parameter <span className="text-red-500">*</span>
                     </label>
-                    <select
-                      value={formData.parameter[index] || ""}
-                      onChange={(e) => handleArrayChange(index, 'parameter', e.target.value)}
-                      disabled={dropdownLoading.parameters}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 
-                               bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                               focus:outline-none focus:ring-2 focus:ring-blue-500
-                               disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value="">
-                        {dropdownLoading.parameters ? "Loading..." : "Select Parameter"}
-                      </option>
-                      {generateOptions(parameters, 'parameters').map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                    <Select
+                      name={`parameter_${index}`}
+                      options={generateOptions(parameters, "parameters")}
+                      value={getSelectedOption(
+                        formData.parameter[index],
+                        generateOptions(parameters, "parameters"),
+                      )}
+                      onChange={(option) =>
+                        handleArraySelectChange(index, "parameter", option)
+                      }
+                      isDisabled={dropdownLoading.parameters}
+                      isLoading={dropdownLoading.parameters}
+                      placeholder="Select Parameter"
+                      className="react-select"
+                      classNamePrefix="react-select"
+                      styles={{
+                        control: (base) => ({
+                          ...base,
+                          backgroundColor: "rgb(255 255 255 / 1)",
+                          borderColor: "rgb(209 213 219 / 1)",
+                          color: "rgb(17 24 39 / 1)",
+                        }),
+                        option: (base, state) => ({
+                          ...base,
+                          backgroundColor: state.isSelected
+                            ? "rgb(59 130 246 / 1)"
+                            : state.isFocused
+                              ? "rgb(219 234 254 / 1)"
+                              : "rgb(255 255 255 / 1)",
+                          color: state.isSelected
+                            ? "white"
+                            : "rgb(17 24 39 / 1)",
+                        }),
+                      }}
+                    />
                     {errors[`parameter_${index}`] && (
-                      <p className="text-red-500 text-xs mt-1">{errors[`parameter_${index}`]}</p>
+                      <p className="mt-1 text-xs text-red-500">
+                        {errors[`parameter_${index}`]}
+                      </p>
                     )}
                   </div>
 
                   {/* Method */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Method <span className="text-red-500">*</span>
                     </label>
-                    <select
-                      value={formData.method[index] || ""}
-                      onChange={(e) => handleArrayChange(index, 'method', e.target.value)}
-                      disabled={dropdownLoading.methods}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 
-                               bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                               focus:outline-none focus:ring-2 focus:ring-blue-500
-                               disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value="">
-                        {dropdownLoading.methods ? "Loading..." : "Select Method"}
-                      </option>
-                      {generateOptions(methods, 'methods').map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                    <Select
+                      name={`method_${index}`}
+                      options={generateOptions(methods, "methods")}
+                      value={getSelectedOption(
+                        formData.method[index],
+                        generateOptions(methods, "methods"),
+                      )}
+                      onChange={(option) =>
+                        handleArraySelectChange(index, "method", option)
+                      }
+                      isDisabled={dropdownLoading.methods}
+                      isLoading={dropdownLoading.methods}
+                      placeholder="Select Method"
+                      className="react-select"
+                      classNamePrefix="react-select"
+                      styles={{
+                        control: (base) => ({
+                          ...base,
+                          backgroundColor: "rgb(255 255 255 / 1)",
+                          borderColor: "rgb(209 213 219 / 1)",
+                          color: "rgb(17 24 39 / 1)",
+                        }),
+                        option: (base, state) => ({
+                          ...base,
+                          backgroundColor: state.isSelected
+                            ? "rgb(59 130 246 / 1)"
+                            : state.isFocused
+                              ? "rgb(219 234 254 / 1)"
+                              : "rgb(255 255 255 / 1)",
+                          color: state.isSelected
+                            ? "white"
+                            : "rgb(17 24 39 / 1)",
+                        }),
+                      }}
+                    />
                     {errors[`method_${index}`] && (
-                      <p className="text-red-500 text-xs mt-1">{errors[`method_${index}`]}</p>
+                      <p className="mt-1 text-xs text-red-500">
+                        {errors[`method_${index}`]}
+                      </p>
                     )}
                   </div>
 
                   {/* Clause */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Clause
                     </label>
-                    <select
-                      value={formData.clause[index] || ""}
-                      onChange={(e) => handleArrayChange(index, 'clause', e.target.value)}
-                      disabled={dropdownLoading.clauses}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 
-                               bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                               focus:outline-none focus:ring-2 focus:ring-blue-500
-                               disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value="">
-                        {dropdownLoading.clauses ? "Loading..." : "Select Clause"}
-                      </option>
-                      {generateOptions(clauses, 'clauses').map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                    <Select
+                      name={`clause_${index}`}
+                      options={generateOptions(clauses, "clauses")}
+                      value={getSelectedOption(
+                        formData.clause[index],
+                        generateOptions(clauses, "clauses"),
+                      )}
+                      onChange={(option) =>
+                        handleArraySelectChange(index, "clause", option)
+                      }
+                      isDisabled={dropdownLoading.clauses}
+                      isLoading={dropdownLoading.clauses}
+                      placeholder="Select Clause"
+                      className="react-select"
+                      classNamePrefix="react-select"
+                      styles={{
+                        control: (base) => ({
+                          ...base,
+                          backgroundColor: "rgb(255 255 255 / 1)",
+                          borderColor: "rgb(209 213 219 / 1)",
+                          color: "rgb(17 24 39 / 1)",
+                        }),
+                        option: (base, state) => ({
+                          ...base,
+                          backgroundColor: state.isSelected
+                            ? "rgb(59 130 246 / 1)"
+                            : state.isFocused
+                              ? "rgb(219 234 254 / 1)"
+                              : "rgb(255 255 255 / 1)",
+                          color: state.isSelected
+                            ? "white"
+                            : "rgb(17 24 39 / 1)",
+                        }),
+                      }}
+                    />
                   </div>
 
                   {/* Min Value */}
@@ -778,7 +968,9 @@ export default function AddTestPermissibleValue() {
                       type="number"
                       step="0.01"
                       value={formData.pvaluemin[index] || ""}
-                      onChange={(e) => handleParameterValueChange(index, 'min', e.target.value)}
+                      onChange={(e) =>
+                        handleParameterValueChange(index, "min", e.target.value)
+                      }
                       placeholder="Enter minimum value"
                     />
                   </div>
@@ -790,7 +982,9 @@ export default function AddTestPermissibleValue() {
                       type="number"
                       step="0.01"
                       value={formData.pvaluemax[index] || ""}
-                      onChange={(e) => handleParameterValueChange(index, 'max', e.target.value)}
+                      onChange={(e) =>
+                        handleParameterValueChange(index, "max", e.target.value)
+                      }
                       placeholder="Enter maximum value"
                     />
                   </div>
@@ -800,40 +994,60 @@ export default function AddTestPermissibleValue() {
                     <Input
                       label="Specification"
                       value={formData.specification[index] || ""}
-                      onChange={(e) => handleSpecificationChange(index, e.target.value)}
+                      onChange={(e) =>
+                        handleSpecificationChange(index, e.target.value)
+                      }
                       placeholder="Enter specification details"
                     />
                   </div>
                 </div>
 
                 {errors[`value_${index}`] && (
-                  <p className="text-red-500 text-sm mt-2">{errors[`value_${index}`]}</p>
+                  <p className="mt-2 text-sm text-red-500">
+                    {errors[`value_${index}`]}
+                  </p>
                 )}
               </div>
             ))}
           </div>
 
           {/* Submit Buttons */}
-          <div className="flex justify-end gap-4 pt-4 border-t">
+          <div className="flex justify-end gap-4 border-t pt-4">
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate("/dashboards/testing/test-permissible-values")}
+              onClick={() =>
+                navigate("/dashboards/testing/test-permissible-values")
+              }
               disabled={loading}
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
-              color="primary" 
+            <Button
+              type="submit"
+              color="primary"
               disabled={loading}
               className="min-w-[120px]"
             >
               {loading ? (
                 <div className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 000 8v4a8 8 0 01-8-8z"></path>
+                  <svg
+                    className="h-4 w-4 animate-spin text-white"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v4a4 4 0 000 8v4a8 8 0 01-8-8z"
+                    ></path>
                   </svg>
                   Saving...
                 </div>

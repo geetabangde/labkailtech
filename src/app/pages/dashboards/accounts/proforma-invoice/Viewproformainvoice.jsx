@@ -57,6 +57,64 @@ const formatDate = (dateStr) => {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 };
 
+// ── Number to words (PHP: convert_number_to_words) ──────────────────────────
+function numberToWords(n) {
+  if (n === 0) return "zero";
+  const ones = [
+    "",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+    "thirteen",
+    "fourteen",
+    "fifteen",
+    "sixteen",
+    "seventeen",
+    "eighteen",
+    "nineteen",
+  ];
+  const tens = [
+    "",
+    "",
+    "twenty",
+    "thirty",
+    "forty",
+    "fifty",
+    "sixty",
+    "seventy",
+    "eighty",
+    "ninety",
+  ];
+  function words(num) {
+    if (num === 0) return "";
+    if (num < 20) return ones[num] + " ";
+    if (num < 100)
+      return (
+        tens[Math.floor(num / 10)] +
+        (num % 10 ? " " + ones[num % 10] : "") +
+        " "
+      );
+    if (num < 1000)
+      return ones[Math.floor(num / 100)] + " hundred " + words(num % 100);
+    if (num < 100000)
+      return words(Math.floor(num / 1000)) + "thousand " + words(num % 1000);
+    if (num < 10000000)
+      return words(Math.floor(num / 100000)) + "lakh " + words(num % 100000);
+    return words(Math.floor(num / 10000000)) + "crore " + words(num % 10000000);
+  }
+  const result = words(Math.round(n)).trim();
+  return result.charAt(0).toUpperCase() + result.slice(1);
+}
+
 // ── Spinner ───────────────────────────────────────────────────────────────
 function Spinner() {
   return (
@@ -560,7 +618,7 @@ function InvoicePrintContent({
           {/* IN WORDS + Total Charges */}
           <tr>
             <td style={{ border, padding: cellPad, fontSize: 13 }}>
-              <b>(IN WORDS):</b> Rs. {invoice.total_in_words ?? ""} only
+              <b>(IN WORDS):</b> Rs. {numberToWords(invoice.total || 0)} only
             </td>
             <td style={{ border, padding: cellPad }}>
               <div

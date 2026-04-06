@@ -135,7 +135,7 @@ function InvoicePrintTemplate({ inv, addr, items, qrUrl, signUrl, digitalSignUrl
   const finalTotal = parseFloat(inv.finaltotal ?? 0);
   const isFoc = inv.invoiceno === "FOC";
   const isNormalPo = inv.potype === "Normal";
-  const hasMeter = items.some((it) => it.meter_option == 1);
+  // hasMeter removed to standardize on "Nos."
   const status = Number(inv.status);
   // Only use qrUrl if it's a base64 data URL — raw URLs will CORS-block html2canvas
   const safeQrUrl = qrUrl && qrUrl.startsWith("data:") ? qrUrl : null;
@@ -230,7 +230,7 @@ function InvoicePrintTemplate({ inv, addr, items, qrUrl, signUrl, digitalSignUrl
           <tr>
             <th>S. No.</th>
             <th>Description</th>
-            <th>{hasMeter ? "Meter's" : "No's"}</th>
+            <th>{"No's"}</th>
             {isNormalPo && <>
               <th>Rate</th>
               <th>Amount</th>
@@ -748,8 +748,7 @@ export default function ViewInvoiceCalibration() {
                 <th className="border border-gray-400 px-2 py-1.5 text-center dark:border-dark-500" style={{ width: "8%" }}>S. No.</th>
                 <th className="border border-gray-400 px-2 py-1.5 text-center dark:border-dark-500">Description</th>
                 <th className="border border-gray-400 px-2 py-1.5 text-center dark:border-dark-500" style={{ width: "10%" }}>
-                  {/* PHP: meter_option == 1 → "Meter's" else "No's" */}
-                  {items.some((it) => it.meter_option == 1) ? "Meter's" : "No's"}
+                  {"No's"}
                 </th>
                 {isNormalPo && (
                   <>
@@ -871,10 +870,19 @@ export default function ViewInvoiceCalibration() {
               {/* Bank details + Authorised signatory */}
               <tr>
                 <td className="border border-gray-400 p-3 align-top text-xs dark:border-dark-500">
-                  <div>For online payments - {invoice.bankaccountname ?? "KAILTECH TEST AND RESEARCH CENTRE PVT LTD."}</div>
-                  <div>Bank Name : {invoice.bankname ?? "—"}, Branch Name : {invoice.bankbranch ?? "—"}</div>
-                  <div>Bank Account No. : {invoice.bankaccountno ?? "—"}, A/c Type : {invoice.bankactype ?? "—"}</div>
-                  <div>IFSC CODE: {invoice.bankifsccode ?? "—"}, MICR CODE: {invoice.bankmicr ?? "—"}</div>
+                  <div>For online payments - {invoice.bankaccountname || companyInfo?.bank?.account_name || "KAILTECH TEST AND RESEARCH CENTRE PVT LTD."}</div>
+                  <div>
+                    Bank Name : {invoice.bankname || companyInfo?.bank?.bank_name || "—"}, 
+                    Branch Name : {invoice.bankbranch || companyInfo?.bank?.branch || "—"}
+                  </div>
+                  <div>
+                    Bank Account No. : {invoice.bankaccountno || companyInfo?.bank?.account_no || "—"}, 
+                    A/c Type : {invoice.bankactype || companyInfo?.bank?.account_type || "—"}
+                  </div>
+                  <div>
+                    IFSC CODE: {invoice.bankifsccode || companyInfo?.bank?.ifsc || "—"}, 
+                    MICR CODE: {invoice.bankmicr || companyInfo?.bank?.micr || "—"}
+                  </div>
                   <div className="mt-2 text-gray-600">
                     Certified that the particulars given above are true and correct.
                     The commercial values in this document are as per contract/Agreement/Purchase order terms with the customer.

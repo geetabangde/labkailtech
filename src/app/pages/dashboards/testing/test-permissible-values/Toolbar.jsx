@@ -1,5 +1,5 @@
 // Import Dependencies
-import {MagnifyingGlassIcon} from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import {
   Menu,
@@ -19,7 +19,7 @@ import { useBreakpointsContext } from "app/contexts/breakpoint/context";
 export function Toolbar({ table }) {
   const { isXs } = useBreakpointsContext();
   const isFullScreenEnabled = table.getState().tableSettings.enableFullScreen;
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
 
   return (
     <div className="table-toolbar">
@@ -29,18 +29,20 @@ export function Toolbar({ table }) {
           isFullScreenEnabled ? "px-4 sm:px-5" : "px-(--margin-x) pt-4",
         )}
       >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           {/* Heading */}
           <div className="min-w-0">
-            <h2 className="text-xl font-semibold tracking-wide text-gray-800 dark:text-dark-50">
-               Permissible Values List
+            <h2 className="dark:text-dark-50 text-xl font-semibold tracking-wide text-gray-800">
+              Permissible Values List
             </h2>
           </div>
 
           {/* Button */}
           <div>
             <Button
-              onClick={() => navigate("/dashboards/testing/test-permissible-values/create")}
+              onClick={() =>
+                navigate("/dashboards/testing/test-permissible-values/create")
+              }
               className="h-9 rounded-md px-4 text-sm font-medium"
               color="primary"
             >
@@ -48,7 +50,7 @@ export function Toolbar({ table }) {
             </Button>
           </div>
         </div>
-        
+
         {isXs ? (
           <Menu as="div" className="relative inline-block text-left">
             <MenuButton
@@ -66,7 +68,7 @@ export function Toolbar({ table }) {
               leave="transition ease-in"
               leaveFrom="opacity-100 translate-y-0"
               leaveTo="opacity-0 translate-y-2"
-              className="absolute z-100 mt-1.5 min-w-[10rem] whitespace-nowrap rounded-lg border border-gray-300 bg-white py-1 shadow-lg shadow-gray-200/50 outline-hidden focus-visible:outline-hidden dark:border-dark-500 dark:bg-dark-700 dark:shadow-none ltr:right-0 rtl:left-0"
+              className="dark:border-dark-500 dark:bg-dark-700 absolute z-100 mt-1.5 min-w-[10rem] rounded-lg border border-gray-300 bg-white py-1 whitespace-nowrap shadow-lg shadow-gray-200/50 outline-hidden focus-visible:outline-hidden ltr:right-0 rtl:left-0 dark:shadow-none"
             >
               <MenuItem>
                 {({ focus }) => (
@@ -74,7 +76,7 @@ export function Toolbar({ table }) {
                     className={clsx(
                       "flex h-9 w-full items-center px-3 tracking-wide outline-hidden transition-colors",
                       focus &&
-                        "bg-gray-100 text-gray-800 dark:bg-dark-600 dark:text-dark-100",
+                        "dark:bg-dark-600 dark:text-dark-100 bg-gray-100 text-gray-800",
                     )}
                   >
                     <span>Export as PDF</span>
@@ -87,7 +89,7 @@ export function Toolbar({ table }) {
                     className={clsx(
                       "flex h-9 w-full items-center px-3 tracking-wide outline-hidden transition-colors",
                       focus &&
-                        "bg-gray-100 text-gray-800 dark:bg-dark-600 dark:text-dark-100",
+                        "dark:bg-dark-600 dark:text-dark-100 bg-gray-100 text-gray-800",
                     )}
                   >
                     <span>Export as CSV</span>
@@ -116,7 +118,7 @@ export function Toolbar({ table }) {
       ) : (
         <div
           className={clsx(
-            "custom-scrollbar transition-content flex justify-between space-x-4 overflow-x-auto pb-1 pt-4",
+            "custom-scrollbar transition-content flex justify-between space-x-4 overflow-x-auto pt-4 pb-1",
             isFullScreenEnabled ? "px-4 sm:px-5" : "px-(--margin-x)",
           )}
           style={{
@@ -141,7 +143,7 @@ function SearchInput({ table }) {
       onChange={(e) => table.setGlobalFilter(e.target.value)}
       prefix={<MagnifyingGlassIcon className="size-4" />}
       classNames={{
-        input: "h-8 text-xs ring-primary-500/50 focus:ring-3",
+        input: "ring-primary-500/50 h-8 text-xs focus:ring-3",
         root: "shrink-0",
       }}
       placeholder="Search Product Name, Description..."

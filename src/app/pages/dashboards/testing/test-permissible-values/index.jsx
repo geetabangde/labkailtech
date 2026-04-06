@@ -15,7 +15,7 @@ import { useState, useEffect, useCallback } from "react";
 import axios from "utils/axios";
 
 // Local Imports
-import { Table, Card, THead, TBody, Th, Tr, Td } from "components/ui";
+import { Table, Card, THead, TBody, Th, Tr, Td, Input } from "components/ui";
 import { TableSortIcon } from "components/shared/table/TableSortIcon";
 import { Page } from "components/shared/Page";
 import { useLockScrollbar, useDidUpdate, useLocalStorage } from "hooks";
@@ -39,11 +39,15 @@ export default function ProductsDatatableV1() {
   const [loading, setLoading] = useState(true);
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const [lastModifiedId, setLastModifiedId] = useLocalStorage("test-permissible-values-last-modified-id", null);
+  const [lastModifiedId, setLastModifiedId] = useLocalStorage(
+    "test-permissible-values-last-modified-id",
+    null,
+  );
 
   // Update persistent lastModifiedId when navigation state changes
   useEffect(() => {
-    const idFromNav = searchParams.get('updatedId') || location.state?.updatedId;
+    const idFromNav =
+      searchParams.get("updatedId") || location.state?.updatedId;
     if (idFromNav) {
       setLastModifiedId(parseInt(idFromNav));
     }
@@ -70,7 +74,9 @@ export default function ProductsDatatableV1() {
 
       // 2️⃣ "Edit Mode" Sort: Move the specifically updated item (Persistent) to the ABSOLUTE top
       if (lastModifiedId && data.length > 0) {
-        const index = data.findIndex(p => parseInt(p.id) === parseInt(lastModifiedId));
+        const index = data.findIndex(
+          (p) => parseInt(p.id) === parseInt(lastModifiedId),
+        );
         if (index > -1) {
           const [item] = data.splice(index, 1);
           data.unshift(item);
@@ -78,7 +84,6 @@ export default function ProductsDatatableV1() {
       }
 
       setProducts(data);
-
     } catch (err) {
       console.error("Error fetching product list:", err);
       setProducts([]);
@@ -94,11 +99,13 @@ export default function ProductsDatatableV1() {
   const [tableSettings, setTableSettings] = useState({
     enableFullScreen: false,
     enableRowDense: false,
+    enableColumnFilters: true,
   });
 
   const [globalFilter, setGlobalFilter] = useState("");
 
   const [sorting, setSorting] = useState([]);
+  const [columnFilters, setColumnFilters] = useState([]);
 
   const [columnVisibility, setColumnVisibility] = useLocalStorage(
     "column-visibility-products-1",
@@ -118,10 +125,12 @@ export default function ProductsDatatableV1() {
     state: {
       globalFilter,
       sorting,
+      columnFilters,
       columnVisibility,
       columnPinning,
       tableSettings,
     },
+    onColumnFiltersChange: setColumnFilters,
     meta: {
       updateData: (rowIndex, columnId, value) => {
         skipAutoResetPageIndex();
@@ -134,13 +143,13 @@ export default function ProductsDatatableV1() {
               };
             }
             return row;
-          })
+          }),
         );
       },
       deleteRow: (row) => {
         skipAutoResetPageIndex();
         setProducts((old) =>
-          old.filter((oldRow) => oldRow.id !== row.original.id)
+          old.filter((oldRow) => oldRow.id !== row.original.id),
         );
       },
       deleteRows: (rows) => {
@@ -154,8 +163,8 @@ export default function ProductsDatatableV1() {
     filterFns: {
       fuzzy: fuzzyFilter,
     },
-    enableSorting: tableSettings.enableSorting,
-    enableColumnFilters: tableSettings.enableColumnFilters,
+    enableSorting: tableSettings.enableSorting ?? true,
+    enableColumnFilters: true,
     getCoreRowModel: getCoreRowModel(),
     onGlobalFilterChange: setGlobalFilter,
     getFilteredRowModel: getFilteredRowModel(),
@@ -179,9 +188,23 @@ export default function ProductsDatatableV1() {
     return (
       <Page title="Permissible Values List">
         <div className="flex h-[60vh] items-center justify-center text-gray-600">
-          <svg className="animate-spin h-6 w-6 mr-2 text-blue-600" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 000 8v4a8 8 0 01-8-8z"></path>
+          <svg
+            className="mr-2 h-6 w-6 animate-spin text-blue-600"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v4a4 4 0 000 8v4a8 8 0 01-8-8z"
+            ></path>
           </svg>
           Loading Permissible Values...
         </div>
@@ -196,7 +219,7 @@ export default function ProductsDatatableV1() {
           className={clsx(
             "flex h-full w-full flex-col",
             tableSettings.enableFullScreen &&
-            "fixed inset-0 z-61 bg-white pt-3 dark:bg-dark-900",
+              "dark:bg-dark-900 fixed inset-0 z-61 bg-white pt-3",
           )}
         >
           <Toolbar table={table} />
@@ -223,46 +246,83 @@ export default function ProductsDatatableV1() {
                 >
                   <THead>
                     {table.getHeaderGroups().map((headerGroup) => (
-                      <Tr key={headerGroup.id}>
-                        {headerGroup.headers.map((header) => (
-                          <Th
-                            key={header.id}
-                            className={clsx(
-                              "bg-gray-200 font-semibold uppercase text-gray-800 dark:bg-dark-800 dark:text-dark-100 first:ltr:rounded-tl-lg last:ltr:rounded-tr-lg first:rtl:rounded-tr-lg last:rtl:rounded-tl-lg",
-                              header.column.getCanPin() && [
-                                header.column.getIsPinned() === "left" &&
-                                "sticky z-2 ltr:left-0 rtl:right-0",
-                                header.column.getIsPinned() === "right" &&
-                                "sticky z-2 ltr:right-0 rtl:left-0",
-                              ],
-                            )}
-                          >
-                            {header.column.getCanSort() ? (
-                              <div
-                                className="flex cursor-pointer select-none items-center space-x-3 "
-                                onClick={header.column.getToggleSortingHandler()}
-                              >
-                                <span className="flex-1">
-                                  {header.isPlaceholder
-                                    ? null
-                                    : flexRender(
-                                      header.column.columnDef.header,
-                                      header.getContext(),
-                                    )}
-                                </span>
-                                <TableSortIcon
-                                  sorted={header.column.getIsSorted()}
-                                />
-                              </div>
-                            ) : header.isPlaceholder ? null : (
-                              flexRender(
-                                header.column.columnDef.header,
-                                header.getContext(),
-                              )
-                            )}
-                          </Th>
-                        ))}
-                      </Tr>
+                      <div key={headerGroup.id} className="contents">
+                        <Tr>
+                          {headerGroup.headers.map((header) => (
+                            <Th
+                              key={header.id}
+                              className={clsx(
+                                "dark:bg-dark-800 dark:text-dark-100 bg-gray-200 font-semibold text-gray-800 uppercase first:ltr:rounded-tl-lg last:ltr:rounded-tr-lg first:rtl:rounded-tr-lg last:rtl:rounded-tl-lg",
+                                header.column.getCanPin() && [
+                                  header.column.getIsPinned() === "left" &&
+                                    "sticky z-2 ltr:left-0 rtl:right-0",
+                                  header.column.getIsPinned() === "right" &&
+                                    "sticky z-2 ltr:right-0 rtl:left-0",
+                                ],
+                              )}
+                            >
+                              {header.column.getCanSort() ? (
+                                <div
+                                  className="flex cursor-pointer items-center space-x-3 select-none"
+                                  onClick={header.column.getToggleSortingHandler()}
+                                >
+                                  <span className="flex-1">
+                                    {header.isPlaceholder
+                                      ? null
+                                      : flexRender(
+                                          header.column.columnDef.header,
+                                          header.getContext(),
+                                        )}
+                                  </span>
+                                  <TableSortIcon
+                                    sorted={header.column.getIsSorted()}
+                                  />
+                                </div>
+                              ) : header.isPlaceholder ? null : (
+                                flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext(),
+                                )
+                              )}
+                            </Th>
+                          ))}
+                        </Tr>
+                        <Tr className="dark:bg-dark-800/50 bg-gray-50">
+                          {headerGroup.headers.map((header) => (
+                            <Th
+                              key={header.id + "-filter"}
+                              className={clsx(
+                                "dark:border-dark-600 border-t border-gray-300 px-2 py-1.5",
+                                header.column.getCanPin() && [
+                                  header.column.getIsPinned() === "left" &&
+                                    "sticky z-2 ltr:left-0 rtl:right-0",
+                                  header.column.getIsPinned() === "right" &&
+                                    "sticky z-2 ltr:right-0 rtl:left-0",
+                                ],
+                              )}
+                            >
+                              {header.column.getCanFilter() ? (
+                                <div onClick={(e) => e.stopPropagation()}>
+                                  <Input
+                                    size="sm"
+                                    placeholder={`Search...`}
+                                    value={header.column.getFilterValue() ?? ""}
+                                    onChange={(e) =>
+                                      header.column.setFilterValue(
+                                        e.target.value,
+                                      )
+                                    }
+                                    classNames={{
+                                      input:
+                                        "ring-primary-500/30 dark:bg-dark-900 dark:border-dark-700 h-7 border-gray-300 px-2 py-1 text-[10px] focus:ring-1",
+                                    }}
+                                  />
+                                </div>
+                              ) : null}
+                            </Th>
+                          ))}
+                        </Tr>
+                      </div>
                     ))}
                   </THead>
                   <TBody>
@@ -271,9 +331,10 @@ export default function ProductsDatatableV1() {
                         <Tr
                           key={row.id}
                           className={clsx(
-                            "relative border-y border-transparent border-b-gray-200 dark:border-b-dark-500",
-                            row.getIsSelected() && !isSafari &&
-                            "row-selected after:pointer-events-none after:absolute after:inset-0 after:z-2 after:h-full after:w-full after:border-3 after:border-transparent after:bg-primary-500/10 ltr:after:border-l-primary-500 rtl:after:border-r-primary-500",
+                            "dark:border-b-dark-500 relative border-y border-transparent border-b-gray-200",
+                            row.getIsSelected() &&
+                              !isSafari &&
+                              "row-selected after:bg-primary-500/10 ltr:after:border-l-primary-500 rtl:after:border-r-primary-500 after:pointer-events-none after:absolute after:inset-0 after:z-2 after:h-full after:w-full after:border-3 after:border-transparent",
                           )}
                         >
                           {row.getVisibleCells().map((cell) => {
@@ -287,16 +348,16 @@ export default function ProductsDatatableV1() {
                                     : "dark:bg-dark-900",
                                   cell.column.getCanPin() && [
                                     cell.column.getIsPinned() === "left" &&
-                                    "sticky z-2 ltr:left-0 rtl:right-0",
+                                      "sticky z-2 ltr:left-0 rtl:right-0",
                                     cell.column.getIsPinned() === "right" &&
-                                    "sticky z-2 ltr:right-0 rtl:left-0",
+                                      "sticky z-2 ltr:right-0 rtl:left-0",
                                   ],
                                 )}
                               >
                                 {cell.column.getIsPinned() && (
                                   <div
                                     className={clsx(
-                                      "pointer-events-none absolute inset-0 border-gray-200 dark:border-dark-500",
+                                      "dark:border-dark-500 pointer-events-none absolute inset-0 border-gray-200",
                                       cell.column.getIsPinned() === "left"
                                         ? "ltr:border-r rtl:border-l"
                                         : "ltr:border-l rtl:border-r",
@@ -322,7 +383,7 @@ export default function ProductsDatatableV1() {
                   className={clsx(
                     "px-4 pb-4 sm:px-5 sm:pt-4",
                     tableSettings.enableFullScreen &&
-                    "bg-gray-50 dark:bg-dark-800",
+                      "dark:bg-dark-800 bg-gray-50",
                     !(
                       table.getIsSomeRowsSelected() ||
                       table.getIsAllRowsSelected()

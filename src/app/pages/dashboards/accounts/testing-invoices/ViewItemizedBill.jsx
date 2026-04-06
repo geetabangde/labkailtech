@@ -15,82 +15,75 @@
 // Shared logic with other views:
 //   statecode == "23"  → SGST mode (CGST + SGST), else IGST
 //   status == 0        → DRAFT watermark
-//   meter_option == 1  → "Meter's" column header, else "No's"
+//   Nos. column header
+//
+// Shared logic with other views:
+//   statecode == "23"  → SGST mode (CGST + SGST), else IGST
+//   status == 0        → DRAFT watermark
+//   Nos. column header
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router";
+import { renderToStaticMarkup } from "react-dom/server";
 import axios from "utils/axios";
 import { toast } from "sonner";
 import { Page } from "components/shared/Page";
 import logo from "assets/krtc.jpg";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 
-// ─── Cross-origin image → base64 ─────────────────────────────────────────────
-async function toBase64(url) {
-  if (!url) return "";
-  try {
-    const res = await fetch(url, { mode: "cors", cache: "force-cache" });
-    if (!res.ok) throw new Error();
-    const blob = await res.blob();
-    return await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return "";
+// ─── Open invoice in a print window → user saves as PDF ─────────────────────
+function printInvoice(templateProps, withLH, logoSrc, pageTitle) {
+  const bodyHtml = renderToStaticMarkup(
+    <ItemizedBillPrintTemplate {...templateProps} withLH={withLH} />,
+  );
+
+  const full = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>${pageTitle || templateProps.inv?.invoiceno || "Invoice"}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    @page { size: A4; margin: 10mm; }
+    body  { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #111; background: #fff; }
+    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    table  { border-collapse: collapse; width: 100%; margin-bottom: 8px; table-layout: fixed; }
+    th, td { border: 1px solid #000; padding: 5px 7px; font-size: 11px; vertical-align: middle; word-break: break-word; overflow: hidden; }
+    th     { background: #f3f4f6; text-align: center; font-weight: bold; }
+    td.right  { text-align: right; }
+    td.center { text-align: center; }
+    td.nob    { border: none; }
+  </style>
+</head>
+<body>${bodyHtml}</body>
+</html>`;
+
+  const win = window.open("", "_blank", "width=900,height=700");
+  if (!win) {
+    toast.error("Pop-up blocked — please allow pop-ups and try again.");
+    return;
   }
-}
-
-// ─── Multi-page PDF from hidden div ──────────────────────────────────────────
-async function capturePdf(printRef, filename) {
-  try {
-    const el = printRef.current;
-    el.style.display = "block";
-    const canvas = await html2canvas(el, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: "#ffffff",
-      onclone: (clonedDoc) => {
-        clonedDoc
-          .querySelectorAll('style, link[rel="stylesheet"]')
-          .forEach((n) => n.remove());
-        clonedDoc.documentElement.removeAttribute("style");
-      },
-    });
-    el.style.display = "none";
-
-    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const margin = 8;
-    const cW = pageW - margin * 2;
-    const cH = (canvas.height * cW) / canvas.width;
-    const pgH = pageH - margin * 2;
-    let srcY = 0, remaining = cH, firstPage = true;
-
-    while (remaining > 0) {
-      if (!firstPage) pdf.addPage();
-      firstPage = false;
-      const sliceH = Math.min(remaining, pgH);
-      const sc = document.createElement("canvas");
-      sc.width = canvas.width;
-      sc.height = Math.round((sliceH / cH) * canvas.height);
-      sc
-        .getContext("2d")
-        .drawImage(canvas, 0, srcY, canvas.width, sc.height, 0, 0, canvas.width, sc.height);
-      pdf.addImage(sc.toDataURL("image/png"), "PNG", margin, margin, cW, sliceH);
-      srcY += sc.height;
-      remaining -= sliceH;
+  win.document.open();
+  win.document.write(full);
+  win.document.close();
+  win.onafterprint = () => {
+    try {
+      win.close();
+    } catch (e) {
+      void e;
     }
-    pdf.save(filename);
-    toast.success("PDF downloaded");
-  } catch (err) {
-    console.error("PDF error", err);
-    toast.error("Failed to generate PDF");
-  }
+  };
+  win.onload = () => {
+    win.focus();
+    win.print();
+  };
+  setTimeout(() => {
+    try {
+      win.focus();
+      win.print();
+    } catch (e) {
+      void e;
+    }
+  }, 800);
 }
 
 // ─── Inline style tokens (zero Tailwind / oklch — safe for html2canvas) ──────
@@ -111,7 +104,12 @@ const S = {
     backgroundColor: "#f3f4f6",
     fontSize: 11,
   },
-  td: { border: "1px solid #000", padding: "4px 6px", fontSize: 11, verticalAlign: "top" },
+  td: {
+    border: "1px solid #000",
+    padding: "4px 6px",
+    fontSize: 11,
+    verticalAlign: "top",
+  },
   tdR: {
     border: "1px solid #000",
     padding: "4px 8px",
@@ -133,31 +131,64 @@ const f2 = (v) => parseFloat(v ?? 0).toFixed(2);
 const fmtDate = (d) =>
   d && d !== "0000-00-00 00:00:00"
     ? new Date(d).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    })
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      })
     : "";
 
 // ─── Number to words ──────────────────────────────────────────────────────────
 function numberToWords(n) {
   if (n === 0) return "zero";
   const ones = [
-    "", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
-    "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
-    "seventeen", "eighteen", "nineteen",
+    "",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+    "thirteen",
+    "fourteen",
+    "fifteen",
+    "sixteen",
+    "seventeen",
+    "eighteen",
+    "nineteen",
   ];
   const tens = [
-    "", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety",
+    "",
+    "",
+    "twenty",
+    "thirty",
+    "forty",
+    "fifty",
+    "sixty",
+    "seventy",
+    "eighty",
+    "ninety",
   ];
   function words(num) {
     if (num === 0) return "";
     if (num < 20) return ones[num] + " ";
     if (num < 100)
-      return tens[Math.floor(num / 10)] + (num % 10 ? " " + ones[num % 10] : "") + " ";
-    if (num < 1000) return ones[Math.floor(num / 100)] + " hundred " + words(num % 100);
-    if (num < 100000) return words(Math.floor(num / 1000)) + "thousand " + words(num % 1000);
-    if (num < 10000000) return words(Math.floor(num / 100000)) + "lakh " + words(num % 100000);
+      return (
+        tens[Math.floor(num / 10)] +
+        (num % 10 ? " " + ones[num % 10] : "") +
+        " "
+      );
+    if (num < 1000)
+      return ones[Math.floor(num / 100)] + " hundred " + words(num % 100);
+    if (num < 100000)
+      return words(Math.floor(num / 1000)) + "thousand " + words(num % 1000);
+    if (num < 10000000)
+      return words(Math.floor(num / 100000)) + "lakh " + words(num % 100000);
     return words(Math.floor(num / 10000000)) + "crore " + words(num % 10000000);
   }
   const result = words(Math.round(n)).trim();
@@ -165,12 +196,26 @@ function numberToWords(n) {
 }
 
 // ─── PDF Print Template ───────────────────────────────────────────────────────
-function ItemizedBillPrintTemplate({ inv, addr, items, signUrl, digitalSignUrl, withLH, hasMeter }) {
+function ItemizedBillPrintTemplate({
+  inv,
+  addr,
+  items,
+  signUrl,
+  digitalSignUrl,
+  withLH,
+  companyInfo,
+  states = [],
+}) {
   const statecode = !isNaN(inv.statecode)
     ? String(inv.statecode).padStart(2, "0")
     : inv.statecode;
   const isSGST = String(statecode) === "23";
-  const stateLabel = inv.statename ?? statecode ?? "";
+  const matchedState = states.find(
+    (s) =>
+      String(s.gst_code).padStart(2, "0") ===
+      String(statecode).padStart(2, "0"),
+  );
+  const stateLabel = inv.statename ?? matchedState?.state ?? statecode ?? "";
   const finalTotal = parseFloat(inv.finaltotal ?? 0);
   const status = Number(inv.status);
 
@@ -178,15 +223,44 @@ function ItemizedBillPrintTemplate({ inv, addr, items, signUrl, digitalSignUrl, 
     <div style={S.wrap}>
       {/* Letterhead */}
       {withLH && (
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 8 }}>
-          <img src={logo} alt="Logo" style={{ height: 60, width: "auto" }} crossOrigin="anonymous" />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 12,
+            marginBottom: 8,
+          }}
+        >
+          <img
+            src={logo}
+            alt="Logo"
+            style={{ height: 60, width: "auto" }}
+            crossOrigin="anonymous"
+          />
           <div style={{ flex: 1, textAlign: "right" }}>
-            <p style={{ fontFamily: "monospace", fontSize: 10, fontStyle: "italic", color: "#555", margin: 0 }}>
-              NABL Accredited as per IS/ISO/IEC 17025 (Certificate Nos. TC-7832 &amp; CC-2348),
+            <p
+              style={{
+                fontFamily: "monospace",
+                fontSize: 10,
+                fontStyle: "italic",
+                color: "#555",
+                margin: 0,
+              }}
+            >
+              NABL Accredited as per IS/ISO/IEC 17025 (Certificate Nos. TC-7832
+              &amp; CC-2348),
               <br />
-              BIS Recognized &amp; ISO 9001 Certified Test &amp; Calibration Laboratory
+              BIS Recognized &amp; ISO 9001 Certified Test &amp; Calibration
+              Laboratory
             </p>
-            <div style={{ fontSize: 18, fontWeight: "bold", color: "navy", marginTop: 4 }}>
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: "bold",
+                color: "navy",
+                marginTop: 4,
+              }}
+            >
               Kailtech Test And Research Centre Pvt. Ltd.
             </div>
           </div>
@@ -195,9 +269,35 @@ function ItemizedBillPrintTemplate({ inv, addr, items, signUrl, digitalSignUrl, 
 
       {/* Title */}
       <div style={{ textAlign: "center", marginBottom: 8 }}>
-        <div style={{ fontSize: 14, fontWeight: "bold", textTransform: "uppercase" }}>TAX INVOICE</div>
-        <div style={{ fontSize: 11, fontWeight: "bold", textTransform: "uppercase", marginTop: 4 }}>For {inv.typeofinvoice || "Testing"} Charges</div>
-        <div style={{ fontSize: 11, fontWeight: "bold", textTransform: "uppercase", marginTop: 2 }}>ORIGINAL FOR RECIPIENT</div>
+        <div
+          style={{
+            fontSize: 14,
+            fontWeight: "bold",
+            textTransform: "uppercase",
+          }}
+        >
+          TAX INVOICE
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: "bold",
+            textTransform: "uppercase",
+            marginTop: 4,
+          }}
+        >
+          For {inv.typeofinvoice || "Testing"} Charges
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: "bold",
+            textTransform: "uppercase",
+            marginTop: 2,
+          }}
+        >
+          ORIGINAL FOR RECIPIENT
+        </div>
       </div>
 
       {/* Customer + Invoice meta */}
@@ -210,7 +310,8 @@ function ItemizedBillPrintTemplate({ inv, addr, items, signUrl, digitalSignUrl, 
               <div style={{ marginTop: 2 }}>
                 {addr.address ? (
                   <>
-                    {addr.address}<br />
+                    {addr.address}
+                    <br />
                     {[addr.city, addr.pincode].filter(Boolean).join(", ")}
                   </>
                 ) : (
@@ -218,22 +319,36 @@ function ItemizedBillPrintTemplate({ inv, addr, items, signUrl, digitalSignUrl, 
                 )}
               </div>
               <div style={{ marginTop: 4 }}>
-                <span style={S.label}>State name: </span>{stateLabel}&nbsp;&nbsp;
+                <span style={S.label}>State name: </span>
+                {stateLabel}&nbsp;&nbsp;
                 <span style={S.label}>State code: </span>
                 {!isNaN(inv.statecode) ? statecode : "NA"}
               </div>
               <div>
-                <span style={S.label}>GSTIN/UIN: </span>{inv.gstno}&nbsp;&nbsp;
-                <span style={S.label}>PAN: </span>{inv.pan}
+                <span style={S.label}>GSTIN/UIN: </span>
+                {inv.gstno}&nbsp;&nbsp;
+                <span style={S.label}>PAN: </span>
+                {inv.pan}
               </div>
               {inv.concern_person && (
-                <div style={{ fontSize: 10, color: "#555" }}>Kind Attn. {inv.concern_person}</div>
+                <div style={{ fontSize: 10, color: "#555" }}>
+                  Kind Attn. {inv.concern_person}
+                </div>
               )}
             </td>
             <td style={S.td} colSpan={3}>
-              <div><span style={S.label}>Invoice No.: </span>{inv.invoiceno}</div>
-              <div><span style={S.label}>Date: </span>{fmtDate(inv.invoicedate)}</div>
-              <div><span style={S.label}>P.O. No. / Date: </span>{inv.ponumber}</div>
+              <div>
+                <span style={S.label}>Invoice No.: </span>
+                {inv.invoiceno}
+              </div>
+              <div>
+                <span style={S.label}>Date: </span>
+                {fmtDate(inv.invoicedate)}
+              </div>
+              <div>
+                <span style={S.label}>P.O. No. / Date: </span>
+                {inv.ponumber}
+              </div>
             </td>
           </tr>
         </tbody>
@@ -245,24 +360,28 @@ function ItemizedBillPrintTemplate({ inv, addr, items, signUrl, digitalSignUrl, 
           <tr>
             <th style={{ ...S.th, width: "8%" }}>S. No.</th>
             <th style={S.th}>Description</th>
-            <th style={{ ...S.th, width: "10%" }}>{hasMeter ? "Meter's" : "No's"}</th>
+            <th style={{ ...S.th, width: "10%" }}>{"No's"}</th>
             <th style={{ ...S.th, width: "10%" }}>Rate</th>
             <th style={{ ...S.th, width: "12%" }}>Amount</th>
           </tr>
         </thead>
         <tbody>
           {items.map((item, idx) => {
-            const qty = item.meter_option == 1 ? (Math.round(item.meter * 100) / 100) : item.qty;
+            const qty =
+              item.meter_option == 1
+                ? Math.round(item.meter * 100) / 100
+                : item.qty;
             return (
-              <tr key={item.id ?? idx} style={{ backgroundColor: idx % 2 === 1 ? "#f9fafb" : "#fff" }}>
+              <tr
+                key={item.id ?? idx}
+                style={{ backgroundColor: idx % 2 === 1 ? "#f9fafb" : "#fff" }}
+              >
                 <td style={S.tdC}>{idx + 1}</td>
                 <td style={S.td}>
                   {item.name}
                   {item.brand ? `(${item.brand})` : ""}
                 </td>
-                <td style={S.tdC}>
-                  {qty}
-                </td>
+                <td style={S.tdC}>{qty}</td>
                 <td style={S.tdC}>{item.rate}</td>
                 <td style={S.tdR}>{f2(item.amount)}</td>
               </tr>
@@ -290,26 +409,44 @@ function ItemizedBillPrintTemplate({ inv, addr, items, signUrl, digitalSignUrl, 
               }
             >
               {/* PHP: BRN No is commented out for itemized view */}
-              {inv.remark?.trim() && <div><strong>Remark :</strong> {inv.remark}</div>}
+              {inv.remark?.trim() && (
+                <div>
+                  <strong>Remark :</strong> {inv.remark}
+                </div>
+              )}
               {inv.remark?.trim() && <br />}
-              <div>PAN : AADCK0799A</div>
-              <div>GSTIN : 23AADCK0799A1ZV</div>
-              <div>SAC Code : 998394 Category : Scientific and Technical Consultancy Services</div>
+              <div>PAN : {companyInfo?.company?.pan_no || "AADCK0799A"}</div>
+              <div>
+                GSTIN : {companyInfo?.company?.gst_no || "23AADCK0799A1ZV"}
+              </div>
+              <div>
+                SAC Code : {companyInfo?.company?.sac_code || "998394"} Category
+                : Scientific and Technical Consultancy Services
+              </div>
               <div>Udhyam Registeration No. Type of MSME : 230262102537</div>
-              <div>CIN NO.U73100MP2006PTC019006</div>
+              <div>
+                CIN NO.{" "}
+                {companyInfo?.company?.cin_no || "U73100MP2006PTC019006"}
+              </div>
             </td>
             <td style={S.td}>Subtotal</td>
             <td style={S.tdR}>{f2(inv.subtotal)}</td>
           </tr>
           {parseFloat(inv.discnumber) > 0 && (
             <tr>
-              <td style={S.td}>Discount ({inv.discnumber}{inv.disctype === "%" ? "%" : ""})</td>
+              <td style={S.td}>
+                Discount ({inv.discnumber}
+                {inv.disctype === "%" ? "%" : ""})
+              </td>
               <td style={S.tdR}>{f2(inv.discount)}</td>
             </tr>
           )}
           {parseFloat(inv.witnesscharges) > 0 && (
             <tr>
-              <td style={S.td}>Witness Charges ({inv.witnessnumber}{inv.witnesstype === "%" ? "%" : ""})</td>
+              <td style={S.td}>
+                Witness Charges ({inv.witnessnumber}
+                {inv.witnesstype === "%" ? "%" : ""})
+              </td>
               <td style={S.tdR}>{f2(inv.witnesscharges)}</td>
             </tr>
           )}
@@ -370,43 +507,82 @@ function ItemizedBillPrintTemplate({ inv, addr, items, signUrl, digitalSignUrl, 
           {/* In words + final total */}
           <tr>
             <td style={{ ...S.td, borderRight: "none" }} colSpan={2}>
-              <strong>(IN WORDS):</strong> Rs. {numberToWords(Math.round(finalTotal))} Only
+              <strong>(IN WORDS):</strong> Rs.{" "}
+              {numberToWords(Math.round(finalTotal))} Only
             </td>
             <td style={{ ...S.td, borderLeft: "none" }}>
               <strong>Total Charges</strong>
             </td>
-            <td style={{ ...S.tdR, fontWeight: "bold" }}>{f2(Math.round(finalTotal))}</td>
+            <td style={{ ...S.tdR, fontWeight: "bold" }}>
+              {f2(Math.round(finalTotal))}
+            </td>
           </tr>
 
           {/* Bank details + Signatory */}
           <tr>
             <td style={{ ...S.td, borderRight: "none" }} colSpan={2}>
-              <div>For online payments - {inv.bankaccountname ?? ""}</div>
-              <div>Bank Name : {inv.bankname ?? ""}, Branch Name : {inv.bankbranch ?? ""}</div>
-              <div>Bank Account No. : {inv.bankaccountno ?? ""}, A/c Type : {inv.bankactype ?? ""}</div>
-              <div>IFSC CODE: {inv.bankifsccode ?? ""}, MICR CODE: {inv.bankmicr ?? ""}</div>
+              <div>
+                For online payments -{" "}
+                {inv.bankaccountname || companyInfo?.bank?.account_name || ""}
+              </div>
+              <div>
+                Bank Name : {inv.bankname || companyInfo?.bank?.bank_name || ""}
+                , Branch Name :{" "}
+                {inv.bankbranch || companyInfo?.bank?.branch || ""}
+              </div>
+              <div>
+                Bank Account No. :{" "}
+                {inv.bankaccountno || companyInfo?.bank?.account_no || ""}, A/c
+                Type : {inv.bankactype || companyInfo?.bank?.account_type || ""}
+              </div>
+              <div>
+                IFSC CODE: {inv.bankifsccode || companyInfo?.bank?.ifsc || ""},
+                MICR CODE: {inv.bankmicr || companyInfo?.bank?.micr || ""}
+              </div>
               <div style={{ marginTop: 6, fontSize: 10 }}>
                 Certified that the particulars given above are true and correct.
                 <br />
-                <b> Declaration u/s 206 AB of Income Tax Act:</b> We have filed our Income Tax Return for previous two years with in specified due dates.
+                <b> Declaration u/s 206 AB of Income Tax Act:</b> We have filed
+                our Income Tax Return for previous two years with in specified
+                due dates.
               </div>
             </td>
-            <td style={{ ...S.td, borderLeft: "none", textAlign: "right" }} colSpan={2}>
-              <div style={{ height: 120, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+            <td
+              style={{ ...S.td, borderLeft: "none", textAlign: "right" }}
+              colSpan={2}
+            >
+              <div
+                style={{
+                  height: 120,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                }}
+              >
                 <div>For Kailtech Test And Research Centre Pvt. Ltd.</div>
                 {(status === 1 || status === 2) && (
                   <div>
                     {signUrl && (
-                      <img src={signUrl} alt="Sign" crossOrigin="anonymous"
-                        style={{ width: 100, height: 40, objectFit: "contain" }} />
+                      <img
+                        src={signUrl}
+                        alt="Sign"
+                        crossOrigin="anonymous"
+                        style={{ width: 100, height: 40, objectFit: "contain" }}
+                      />
                     )}
                     {digitalSignUrl && (
-                      <img src={digitalSignUrl} alt="DigSign" crossOrigin="anonymous"
-                        style={{ maxHeight: 50, objectFit: "contain" }} />
+                      <img
+                        src={digitalSignUrl}
+                        alt="DigSign"
+                        crossOrigin="anonymous"
+                        style={{ maxHeight: 50, objectFit: "contain" }}
+                      />
                     )}
                   </div>
                 )}
-                <div><u>Authorised Signatory</u></div>
+                <div>
+                  <u>Authorised Signatory</u>
+                </div>
               </div>
             </td>
           </tr>
@@ -414,14 +590,37 @@ function ItemizedBillPrintTemplate({ inv, addr, items, signUrl, digitalSignUrl, 
           {/* Terms & Conditions */}
           <tr>
             <td style={{ ...S.td, fontSize: 10 }} colSpan={4}>
-              <strong><u>Terms &amp; Conditions:</u></strong>
+              <strong>
+                <u>Terms &amp; Conditions:</u>
+              </strong>
               <ol style={{ paddingLeft: 18, marginTop: 4, lineHeight: 1.6 }}>
-                <li>Cross Cheque/DD should be drawn in favour of Kailtech Test And Research Centre Pvt. Ltd. Payable at Indore</li>
-                <li>Please attached bill details indicating Invoice No. Quotation no &amp; TDS deductions if any along with your payment.</li>
-                <li>As per existing GST rules. the GSTR-1 has to be filed in the immediate next month of billing. So if you have any issue in this tax invoice viz customer Name, Address, GST No., Amount etc, please inform positively in writing before 5th of next month, otherwise no such request will be entertained.</li>
-                <li>Payment not made with in 15 days from the date of issued bill will attract interest @ 24% P.A.</li>
-                <li>If the payment is to be paid in Cash pay to UPI <strong>0795933A0099960.bqr@kotak</strong> only and take official receipt. Else claim of payment, shall not be accepted</li>
-                <li>Subject to exclusive jurisdiction of courts at Indore only.</li>
+                <li>
+                  Cross Cheque/DD should be drawn in favour of Kailtech Test And
+                  Research Centre Pvt. Ltd. Payable at Indore
+                </li>
+                <li>
+                  Please attached bill details indicating Invoice No. Quotation
+                  no &amp; TDS deductions if any along with your payment.
+                </li>
+                <li>
+                  As per existing GST rules. the GSTR-1 has to be filed in the
+                  immediate next month of billing. So if you have any issue in
+                  this tax invoice viz customer Name, Address, GST No., Amount
+                  etc, please inform positively in writing before 5th of next
+                  month, otherwise no such request will be entertained.
+                </li>
+                <li>
+                  Payment not made with in 15 days from the date of issued bill
+                  will attract interest @ 24% P.A.
+                </li>
+                <li>
+                  If the payment is to be paid in Cash pay to UPI{" "}
+                  <strong>0795933A0099960.bqr@kotak</strong> only and take
+                  official receipt. Else claim of payment, shall not be accepted
+                </li>
+                <li>
+                  Subject to exclusive jurisdiction of courts at Indore only.
+                </li>
                 <li>Errors &amp; omissions accepted.</li>
               </ol>
             </td>
@@ -436,9 +635,24 @@ function ItemizedBillPrintTemplate({ inv, addr, items, signUrl, digitalSignUrl, 
 function Spinner() {
   return (
     <div className="flex h-[60vh] items-center justify-center gap-3 text-gray-500">
-      <svg className="h-6 w-6 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 000 8v4a8 8 0 01-8-8z" />
+      <svg
+        className="h-6 w-6 animate-spin text-blue-500"
+        viewBox="0 0 24 24"
+        fill="none"
+      >
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8v4a4 4 0 000 8v4a8 8 0 01-8-8z"
+        />
       </svg>
       Loading invoice…
     </div>
@@ -450,16 +664,17 @@ function SummaryRow({ label, value, bold = false }) {
   return (
     <div className="flex items-center justify-between py-0.5 text-sm">
       <span
-        className={`text-right text-gray-600 dark:text-dark-400 ${bold ? "font-semibold" : ""}`}
+        className={`dark:text-dark-400 text-right text-gray-600 ${bold ? "font-semibold" : ""}`}
         style={{ flex: "0 0 70%" }}
       >
         {label}
       </span>
       <span
-        className={`text-right tabular-nums ${bold
-          ? "font-bold text-gray-900 dark:text-dark-100"
-          : "text-gray-800 dark:text-dark-200"
-          }`}
+        className={`text-right tabular-nums ${
+          bold
+            ? "dark:text-dark-100 font-bold text-gray-900"
+            : "dark:text-dark-200 text-gray-800"
+        }`}
         style={{ flex: "0 0 30%" }}
       >
         {value}
@@ -475,14 +690,11 @@ export default function ViewItemizedBill() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const printWithLH = useRef(null);
-  const printWithoutLH = useRef(null);
-
   const [invoice, setInvoice] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [imgBase64, setImgBase64] = useState({ sign: "", dSign: "" });
-  const [pdfBusy, setPdfBusy] = useState(false);
+  const [companyInfo, setCompanyInfo] = useState(null);
+  const [states, setStates] = useState([]);
 
   // ── Fetch invoice detail ───────────────────────────────────────────────────
   // API: GET /accounts/view-itemized-invoice/:id
@@ -502,11 +714,6 @@ export default function ViewItemizedBill() {
         _digital_signature: d.digital_signature,
       });
       setItems(Array.isArray(d.items) ? d.items : []);
-      const [sign, dSign] = await Promise.all([
-        toBase64(d?.signature_image),
-        toBase64(d?.digital_signature),
-      ]);
-      setImgBase64({ sign, dSign });
     } catch {
       toast.error("Failed to load invoice");
     } finally {
@@ -516,9 +723,23 @@ export default function ViewItemizedBill() {
 
   useEffect(() => {
     load();
+    axios
+      .get("/get-company-info")
+      .then((res) => setCompanyInfo(res.data?.data))
+      .catch((err) => console.error("Failed to load company info:", err));
+
+    axios
+      .get("/people/get-state")
+      .then((res) => setStates(res.data?.data || []))
+      .catch((err) => console.error("Failed to load states:", err));
   }, [load]);
 
-  if (loading) return <Page title="View Itemized Bill"><Spinner /></Page>;
+  if (loading)
+    return (
+      <Page title="View Itemized Bill">
+        <Spinner />
+      </Page>
+    );
   if (!invoice)
     return (
       <Page title="View Itemized Bill">
@@ -535,9 +756,6 @@ export default function ViewItemizedBill() {
   const isSgst = statecode === "23";
   const isDraft = Number(invoice.status) === 0;
 
-  // PHP: meter_option from invoicerow where status=1
-  const hasMeter = items.some((it) => it.meter_option == 1);
-
   // ── Grouping logic (per user request) ──────────────────────────────────────
   const groupedItemsMap = items.reduce((acc, item) => {
     const key = `${item.name}_${item.brand}_${item.rate}`;
@@ -546,9 +764,10 @@ export default function ViewItemizedBill() {
     }
     acc[key].qty += parseFloat(item.qty || 1);
     acc[key].meter += parseFloat(item.meter || 0);
-    const rowAmt = item.meter_option == 1
-      ? parseFloat(item.rate || 0) * parseFloat(item.meter || 0)
-      : parseFloat(item.rate || 0) * (parseFloat(item.qty) || 1);
+    const rowAmt =
+      item.meter_option == 1
+        ? parseFloat(item.rate || 0) * parseFloat(item.meter || 0)
+        : parseFloat(item.rate || 0) * (parseFloat(item.qty) || 1);
     acc[key].amount += rowAmt;
     return acc;
   }, {});
@@ -563,74 +782,60 @@ export default function ViewItemizedBill() {
       : "";
 
   // ── PDF handlers ───────────────────────────────────────────────────────────
-  const handlePdfWithLH = async () => {
-    setPdfBusy(true);
-    await capturePdf(printWithLH, `${invoice.invoiceno ?? "invoice"}_itemized.pdf`);
-    setPdfBusy(false);
-  };
-
-  const handlePdfWithoutLH = async () => {
-    setPdfBusy(true);
-    await capturePdf(
-      printWithoutLH,
-      `${invoice.invoiceno ?? "invoice"}_itemized_withoutletterhead.pdf`,
-    );
-    setPdfBusy(false);
-  };
-
-  const templateProps = {
-    inv: invoice,
-    addr: invoice._address ?? {},
-    items: finalItems,
-    signUrl: imgBase64.sign || invoice._signature_image,
-    digitalSignUrl: imgBase64.dSign || invoice._digital_signature,
-    hasMeter,
+  const handleExport = (withLH) => {
+    const templateProps = {
+      inv: invoice,
+      addr: invoice._address ?? {},
+      items: finalItems,
+      signUrl: invoice._signature_image,
+      digitalSignUrl: invoice._digital_signature,
+      companyInfo,
+      states,
+    };
+    const pageTitle = withLH ? "invoice" : "invoice without LetterHead";
+    printInvoice(templateProps, withLH, logo, pageTitle);
   };
 
   return (
     <Page title="View Itemized Bill">
       <div className="transition-content px-(--margin-x) pb-10">
-
-        {/* ── Hidden print templates ── */}
-        <div style={{ position: "absolute", top: -9999, left: -9999, zIndex: -1 }}>
-          <div ref={printWithLH} style={{ display: "none" }}>
-            <ItemizedBillPrintTemplate {...templateProps} withLH={true} />
-          </div>
-        </div>
-        <div style={{ position: "absolute", top: -9999, left: -9999, zIndex: -1 }}>
-          <div ref={printWithoutLH} style={{ display: "none" }}>
-            <ItemizedBillPrintTemplate {...templateProps} withLH={false} />
-          </div>
-        </div>
-
         {/* ── Action buttons ── */}
         <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden">
           <button
-            onClick={handlePdfWithLH}
-            disabled={pdfBusy}
-            className="inline-flex items-center gap-1.5 rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60"
+            onClick={() => handleExport(true)}
+            className="inline-flex items-center gap-1.5 rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700"
           >
-            {pdfBusy ? (
-              <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 000 8v4a8 8 0 01-8-8z" />
-              </svg>
-            ) : (
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round"
-                  d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-              </svg>
-            )}
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+              />
+            </svg>
             Export PDF Invoice
           </button>
           <button
-            onClick={handlePdfWithoutLH}
-            disabled={pdfBusy}
-            className="inline-flex items-center gap-1.5 rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60"
+            onClick={() => handleExport(false)}
+            className="inline-flex items-center gap-1.5 rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700"
           >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round"
-                d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2-2z"
+              />
             </svg>
             Export PDF Without LetterHead
           </button>
@@ -644,8 +849,9 @@ export default function ViewItemizedBill() {
 
         {/* ── Invoice Body ── */}
         <div
-          className={`relative overflow-hidden rounded-lg border border-gray-300 bg-white p-6 text-sm dark:border-dark-600 dark:bg-dark-900 ${isDraft ? "draft-watermark" : ""
-            }`}
+          className={`dark:border-dark-600 dark:bg-dark-900 relative overflow-hidden rounded-lg border border-gray-300 bg-white p-6 text-sm ${
+            isDraft ? "draft-watermark" : ""
+          }`}
         >
           {/* DRAFT watermark */}
           {isDraft && (
@@ -659,30 +865,47 @@ export default function ViewItemizedBill() {
           {/* ── Header ── */}
           <div className="mb-4 grid grid-cols-12 gap-2">
             <div className="col-span-3 flex items-start">
-              <img src={logo} alt="KRTC Logo" className="h-16 w-auto object-contain" />
+              <img
+                src={logo}
+                alt="KRTC Logo"
+                className="h-16 w-auto object-contain"
+              />
             </div>
-            <div className="col-span-9 text-right">
-              <p className="font-mono text-xs italic text-gray-500">
-                NABL Accredited as per IS/ISO/IEC 17025 (Certificate Nos. TC-7832 &amp; CC-2348),
+            <div className="col-span-9">
+              <p className="text-right font-mono text-xs text-gray-500 italic">
+                NABL Accredited as per IS/ISO/IEC 17025 (Certificate Nos.
+                TC-7832 &amp; CC-2348),
                 <br />
-                BIS Recognized &amp; ISO 9001 Certified Test &amp; Calibration Laboratory
+                BIS Recognized &amp; ISO 9001 Certified Test &amp; Calibration
+                Laboratory
               </p>
-              <h2 className="mt-1 text-xl font-bold" style={{ color: "navy" }}>
-                {invoice.companyname ?? "KAILTECH TEST AND RESEARCH CENTRE PVT LTD."}
+              <h2
+                className="mt-2 text-left text-2xl font-bold"
+                style={{ color: "navy" }}
+              >
+                {companyInfo?.company?.name ||
+                  invoice.companyname ||
+                  "KAILTECH TEST AND RESEARCH CENTRE PVT LTD."}
               </h2>
             </div>
             <div className="col-span-12 text-center font-bold uppercase">
-              TAX INVOICE<br />
-              <span className="text-xs font-semibold">For {invoice.typeofinvoice || "Testing"} Charges</span><br />
-              <span className="text-xs font-semibold">ORIGINAL FOR RECIPIENT</span>
+              TAX INVOICE
+              <br />
+              <span className="text-xs font-semibold">
+                For {invoice.typeofinvoice || "Testing"} Charges
+              </span>
+              <br />
+              <span className="text-xs font-semibold">
+                ORIGINAL FOR RECIPIENT
+              </span>
             </div>
           </div>
 
           {/* ── Customer + Invoice Info ── */}
-          <table className="w-full border-collapse border border-gray-400 text-xs dark:border-dark-500">
+          <table className="dark:border-dark-500 w-full border-collapse border border-gray-400 text-xs">
             <tbody>
               <tr>
-                <td className="w-3/5 border border-gray-400 p-3 align-top dark:border-dark-500">
+                <td className="dark:border-dark-500 w-3/5 border border-gray-400 p-3 align-top">
                   <div className="font-bold">Customer:</div>
                   <div>M / s . {invoice.customername}</div>
                   <div className="mt-1">
@@ -691,12 +914,30 @@ export default function ViewItemizedBill() {
                       : invoice.address}
                   </div>
                   <div className="mt-2 flex flex-wrap gap-x-4">
-                    <span><b>State name: </b>{invoice.statename ?? statecode}</span>
-                    <span><b>State code: </b>{isNaN(Number(statecode)) ? "NA" : statecode}</span>
+                    <span>
+                      <b>State name: </b>
+                      {invoice.statename ??
+                        states.find(
+                          (s) =>
+                            String(s.gst_code).padStart(2, "0") ===
+                            String(statecode).padStart(2, "0"),
+                        )?.state ??
+                        statecode}
+                    </span>
+                    <span>
+                      <b>State code: </b>
+                      {isNaN(Number(statecode)) ? "NA" : statecode}
+                    </span>
                   </div>
                   <div className="flex flex-wrap gap-x-4">
-                    <span><b>GSTIN/UIN: </b>{invoice.gstno || "—"}</span>
-                    <span><b>PAN: </b>{invoice.pan || "—"}</span>
+                    <span>
+                      <b>GSTIN/UIN: </b>
+                      {invoice.gstno || "—"}
+                    </span>
+                    <span>
+                      <b>PAN: </b>
+                      {invoice.pan || "—"}
+                    </span>
                   </div>
                   {invoice.concern_person && (
                     <div className="mt-1 text-xs text-gray-500">
@@ -704,56 +945,76 @@ export default function ViewItemizedBill() {
                     </div>
                   )}
                 </td>
-                <td className="border border-gray-400 p-3 align-top dark:border-dark-500">
-                  <div><b>Invoice No.: </b>{invoice.invoiceno}</div>
-                  <div><b>Date: </b>{fmtInvoiceDate(invoice.invoicedate)}</div>
-                  <div><b>P.O. No. / Date: </b>{invoice.ponumber}</div>
+                <td className="dark:border-dark-500 border border-gray-400 p-3 align-top">
+                  <div>
+                    <b>Invoice No.: </b>
+                    {invoice.invoiceno}
+                  </div>
+                  <div>
+                    <b>Date: </b>
+                    {fmtInvoiceDate(invoice.invoicedate)}
+                  </div>
+                  <div>
+                    <b>P.O. No. / Date: </b>
+                    {invoice.ponumber}
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
 
           {/* ── Items table — from invoiceitemcalibraton ── */}
-          <table className="mt-2 w-full border-collapse border border-gray-400 text-xs dark:border-dark-500">
+          <table className="dark:border-dark-500 mt-2 w-full border-collapse border border-gray-400 text-xs">
             <thead>
-              <tr className="bg-gray-100 dark:bg-dark-700">
-                <th className="border border-gray-400 px-2 py-1.5 text-center dark:border-dark-500"
-                  style={{ width: "8%" }}>S. No.</th>
-                <th className="border border-gray-400 px-2 py-1.5 text-center dark:border-dark-500"
-                  style={{ width: "50%" }}>Description</th>
-                <th className="border border-gray-400 px-2 py-1.5 text-center dark:border-dark-500">
-                  {hasMeter ? "Meter's" : "No's"}
+              <tr className="dark:bg-dark-700 bg-gray-100">
+                <th
+                  className="dark:border-dark-500 border border-gray-400 px-2 py-1.5 text-center"
+                  style={{ width: "8%" }}
+                >
+                  S. No.
                 </th>
-                <th className="border border-gray-400 px-2 py-1.5 text-center dark:border-dark-500">
+                <th
+                  className="dark:border-dark-500 border border-gray-400 px-2 py-1.5 text-center"
+                  style={{ width: "50%" }}
+                >
+                  Description
+                </th>
+                <th className="dark:border-dark-500 border border-gray-400 px-2 py-1.5 text-center">
+                  {"No's"}
+                </th>
+                <th className="dark:border-dark-500 border border-gray-400 px-2 py-1.5 text-center">
                   Rate
                 </th>
-                <th className="border border-gray-400 px-2 py-1.5 text-center dark:border-dark-500">
+                <th className="dark:border-dark-500 border border-gray-400 px-2 py-1.5 text-center">
                   Amount
                 </th>
               </tr>
             </thead>
             <tbody>
               {finalItems.map((item, idx) => {
-                const qty = item.meter_option == 1 ? (Math.round(item.meter * 100) / 100) : item.qty;
+                const qty =
+                  item.meter_option == 1
+                    ? Math.round(item.meter * 100) / 100
+                    : item.qty;
                 return (
                   <tr
                     key={item.id ?? idx}
-                    className="odd:bg-white even:bg-gray-50 dark:odd:bg-dark-900 dark:even:bg-dark-800"
+                    className="dark:odd:bg-dark-900 dark:even:bg-dark-800 odd:bg-white even:bg-gray-50"
                   >
-                    <td className="border border-gray-400 px-2 py-1.5 text-center dark:border-dark-500">
+                    <td className="dark:border-dark-500 border border-gray-400 px-2 py-1.5 text-center">
                       {idx + 1}
                     </td>
-                    <td className="border border-gray-400 px-2 py-1.5 dark:border-dark-500">
+                    <td className="dark:border-dark-500 border border-gray-400 px-2 py-1.5">
                       {item.name}
                       {item.brand ? `(${item.brand})` : ""}
                     </td>
-                    <td className="border border-gray-400 px-2 py-1.5 text-center dark:border-dark-500">
+                    <td className="dark:border-dark-500 border border-gray-400 px-2 py-1.5 text-center">
                       {qty}
                     </td>
-                    <td className="border border-gray-400 px-2 py-1.5 text-center dark:border-dark-500">
+                    <td className="dark:border-dark-500 border border-gray-400 px-2 py-1.5 text-center">
                       {item.rate}
                     </td>
-                    <td className="border border-gray-400 px-2 py-1.5 text-right dark:border-dark-500">
+                    <td className="dark:border-dark-500 border border-gray-400 px-2 py-1.5 text-right">
                       {fmt(item.amount)}
                     </td>
                   </tr>
@@ -763,24 +1024,38 @@ export default function ViewItemizedBill() {
           </table>
 
           {/* ── Bottom table: Remark + company info + summary ── */}
-          <table className="mt-2 w-full border-collapse border border-gray-400 text-xs dark:border-dark-500">
+          <table className="dark:border-dark-500 mt-2 w-full border-collapse border border-gray-400 text-xs">
             <tbody>
               <tr>
                 {/* Left: Remark + company info (BRN No is intentionally NOT shown — PHP has it commented out) */}
-                <td className="w-3/5 border border-gray-400 p-3 align-bottom dark:border-dark-500">
+                <td className="dark:border-dark-500 w-3/5 border border-gray-400 p-3 align-bottom">
                   {invoice.remark?.trim() && (
-                    <div><b>Remark :</b> {invoice.remark}</div>
+                    <div>
+                      <b>Remark :</b> {invoice.remark}
+                    </div>
                   )}
                   {invoice.remark?.trim() && <br />}
-                  <div>PAN : AADCK0799A</div>
-                  <div>GSTIN : 23AADCK0799A1ZV</div>
-                  <div>SAC Code : 998394 Category : Scientific and Technical Consultancy Services</div>
-                  <div>Udhyam Registeration No. Type of MSME : 230262102537</div>
-                  <div>CIN NO.U73100MP2006PTC019006</div>
+                  <div>
+                    PAN : {companyInfo?.company?.pan_no || "AADCK0799A"}
+                  </div>
+                  <div>
+                    GSTIN : {companyInfo?.company?.gst_no || "23AADCK0799A1ZV"}
+                  </div>
+                  <div>
+                    SAC Code : {companyInfo?.company?.sac_code || "998394"}{" "}
+                    Category : Scientific and Technical Consultancy Services
+                  </div>
+                  <div>
+                    Udhyam Registeration No. Type of MSME : 230262102537
+                  </div>
+                  <div>
+                    CIN NO.{" "}
+                    {companyInfo?.company?.cin_no || "U73100MP2006PTC019006"}
+                  </div>
                 </td>
 
                 {/* Right: Summary */}
-                <td className="border border-gray-400 p-3 align-top dark:border-dark-500">
+                <td className="dark:border-dark-500 border border-gray-400 p-3 align-top">
                   <SummaryRow label="Subtotal" value={fmt(invoice.subtotal)} />
                   {discnumber > 0 && (
                     <SummaryRow
@@ -795,13 +1070,22 @@ export default function ViewItemizedBill() {
                     />
                   )}
                   {parseFloat(invoice.samplehandling) > 0 && (
-                    <SummaryRow label="Sample Handling" value={fmt(invoice.samplehandling)} />
+                    <SummaryRow
+                      label="Sample Handling"
+                      value={fmt(invoice.samplehandling)}
+                    />
                   )}
                   {parseFloat(invoice.sampleprep) > 0 && (
-                    <SummaryRow label="Sample Preparation Charges" value={fmt(invoice.sampleprep)} />
+                    <SummaryRow
+                      label="Sample Preparation Charges"
+                      value={fmt(invoice.sampleprep)}
+                    />
                   )}
                   {parseFloat(invoice.freight) > 0 && (
-                    <SummaryRow label="Freight Charges" value={fmt(invoice.freight)} />
+                    <SummaryRow
+                      label="Freight Charges"
+                      value={fmt(invoice.freight)}
+                    />
                   )}
                   {parseFloat(invoice.mobilisation) > 0 && (
                     <SummaryRow
@@ -812,24 +1096,39 @@ export default function ViewItemizedBill() {
                   <SummaryRow label="Total" value={fmt(invoice.subtotal2)} />
                   {isSgst ? (
                     <>
-                      <SummaryRow label={`CGST ${invoice.cgstper}%`} value={fmt(invoice.cgstamount)} />
-                      <SummaryRow label={`SGST ${invoice.sgstper}%`} value={fmt(invoice.sgstamount)} />
+                      <SummaryRow
+                        label={`CGST ${invoice.cgstper}%`}
+                        value={fmt(invoice.cgstamount)}
+                      />
+                      <SummaryRow
+                        label={`SGST ${invoice.sgstper}%`}
+                        value={fmt(invoice.sgstamount)}
+                      />
                     </>
                   ) : (
-                    <SummaryRow label={`IGST ${invoice.igstper}%`} value={fmt(invoice.igstamount)} />
+                    <SummaryRow
+                      label={`IGST ${invoice.igstper}%`}
+                      value={fmt(invoice.igstamount)}
+                    />
                   )}
-                  <SummaryRow label="Total Charges With tax" value={fmt(invoice.total)} />
+                  <SummaryRow
+                    label="Total Charges With tax"
+                    value={fmt(invoice.total)}
+                  />
                   <SummaryRow label="Round off" value={fmt(invoice.roundoff)} />
                 </td>
               </tr>
 
               {/* In words + final total */}
               <tr>
-                <td className="border border-gray-400 p-3 dark:border-dark-500">
+                <td className="dark:border-dark-500 border border-gray-400 p-3">
                   <b>(IN WORDS):</b> Rs.{" "}
-                  {numberToWords(Math.round(parseFloat(invoice.finaltotal) || 0))} Only
+                  {numberToWords(
+                    Math.round(parseFloat(invoice.finaltotal) || 0),
+                  )}{" "}
+                  Only
                 </td>
-                <td className="border border-gray-400 p-3 dark:border-dark-500">
+                <td className="dark:border-dark-500 border border-gray-400 p-3">
                   <SummaryRow
                     label="Total Charges"
                     value={fmt(Math.round(parseFloat(invoice.finaltotal) || 0))}
@@ -840,32 +1139,53 @@ export default function ViewItemizedBill() {
 
               {/* Bank details + Authorised signatory */}
               <tr>
-                <td className="border border-gray-400 p-3 align-top text-xs dark:border-dark-500">
+                <td className="dark:border-dark-500 border border-gray-400 p-3 align-top text-xs">
                   <div>
                     For online payments -{" "}
-                    {invoice.bankaccountname ?? "KAILTECH TEST AND RESEARCH CENTRE PVT LTD."}
+                    {invoice.bankaccountname ||
+                      companyInfo?.bank?.account_name ||
+                      "KAILTECH TEST AND RESEARCH CENTRE PVT LTD."}
                   </div>
                   <div>
-                    Bank Name : {invoice.bankname ?? "—"}, Branch Name : {invoice.bankbranch ?? "—"}
+                    Bank Name :{" "}
+                    {invoice.bankname || companyInfo?.bank?.bank_name || "—"},
+                    Branch Name :{" "}
+                    {invoice.bankbranch || companyInfo?.bank?.branch || "—"}
                   </div>
                   <div>
-                    Bank Account No. : {invoice.bankaccountno ?? "—"}, A/c Type :{" "}
-                    {invoice.bankactype ?? "—"}
+                    Bank Account No. :{" "}
+                    {invoice.bankaccountno ||
+                      companyInfo?.bank?.account_no ||
+                      "—"}
+                    , A/c Type :{" "}
+                    {invoice.bankactype ||
+                      companyInfo?.bank?.account_type ||
+                      "—"}
                   </div>
                   <div>
-                    IFSC CODE: {invoice.bankifsccode ?? "—"}, MICR CODE: {invoice.bankmicr ?? "—"}
+                    IFSC CODE:{" "}
+                    {invoice.bankifsccode || companyInfo?.bank?.ifsc || "—"},
+                    MICR CODE:{" "}
+                    {invoice.bankmicr || companyInfo?.bank?.micr || "—"}
                   </div>
                   <div className="mt-2 text-gray-600">
-                    Certified that the particulars given above are true and correct.<br />
-                    <b> Declaration u/s 206 AB of Income Tax Act:</b> We have filed our Income Tax Return for previous two years with in specified due dates.
+                    Certified that the particulars given above are true and
+                    correct.
+                    <br />
+                    <b> Declaration u/s 206 AB of Income Tax Act:</b> We have
+                    filed our Income Tax Return for previous two years with in
+                    specified due dates.
                   </div>
                 </td>
-                <td className="border border-gray-400 p-3 align-top text-xs dark:border-dark-500 h-1">
+                <td className="dark:border-dark-500 h-1 border border-gray-400 p-3 align-top text-xs">
                   <div className="flex h-full min-h-[120px] flex-col justify-between text-right">
                     <div>
-                      For {invoice.companyname ?? "KAILTECH TEST AND RESEARCH CENTRE PVT LTD."}
+                      For{" "}
+                      {invoice.companyname ??
+                        "KAILTECH TEST AND RESEARCH CENTRE PVT LTD."}
                     </div>
-                    {(Number(invoice.status) === 1 || Number(invoice.status) === 2) &&
+                    {(Number(invoice.status) === 1 ||
+                      Number(invoice.status) === 2) &&
                       invoice._signature_image && (
                         <div className="mt-2 text-right">
                           <img
@@ -891,33 +1211,39 @@ export default function ViewItemizedBill() {
               <tr>
                 <td
                   colSpan={2}
-                  className="border border-gray-400 p-3 text-xs dark:border-dark-500"
+                  className="dark:border-dark-500 border border-gray-400 p-3 text-xs"
                 >
-                  <b><u>Terms &amp; Conditions:</u></b>
-                  <ol className="mt-1 list-decimal pl-5 space-y-0.5">
+                  <b>
+                    <u>Terms &amp; Conditions:</u>
+                  </b>
+                  <ol className="mt-1 list-decimal space-y-0.5 pl-5">
                     <li>
                       Cross Cheque/DD should be drawn in favour of{" "}
-                      {invoice.companyname ?? "KAILTECH TEST AND RESEARCH CENTRE PVT LTD."}{" "}
+                      {invoice.companyname ??
+                        "KAILTECH TEST AND RESEARCH CENTRE PVT LTD."}{" "}
                       Payable at {invoice.companycity ?? "Indore"}
                     </li>
                     <li>
-                      Please attached bill details indicating Invoice No. Quotation no &amp; TDS
-                      deductions if any along with your payment.
+                      Please attached bill details indicating Invoice No.
+                      Quotation no &amp; TDS deductions if any along with your
+                      payment.
                     </li>
                     <li>
-                      As per existing GST rules. the GSTR-1 has to be filed in the immediate next
-                      month of billing. So if you have any issue in this tax invoice viz customer
-                      Name, Address, GST No., Amount etc, please inform positively in writing before
-                      5th of next month, otherwise no such request will be entertained.
+                      As per existing GST rules. the GSTR-1 has to be filed in
+                      the immediate next month of billing. So if you have any
+                      issue in this tax invoice viz customer Name, Address, GST
+                      No., Amount etc, please inform positively in writing
+                      before 5th of next month, otherwise no such request will
+                      be entertained.
                     </li>
                     <li>
-                      Payment not made with in 15 days from the date of issued bill will attract
-                      interest @ 24% P.A.
+                      Payment not made with in 15 days from the date of issued
+                      bill will attract interest @ 24% P.A.
                     </li>
                     <li>
                       If the payment is to be paid in Cash pay to UPI{" "}
-                      <b>0795933A0099960.bqr@kotak</b> only and take official receipt. Else claim of
-                      payment, shall not be accepted
+                      <b>0795933A0099960.bqr@kotak</b> only and take official
+                      receipt. Else claim of payment, shall not be accepted
                     </li>
                     <li>
                       Subject to exclusive jurisdiction of courts at{" "}

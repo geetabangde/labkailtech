@@ -62,13 +62,6 @@ export default function PaymentList() {
     bd: "",
   });
 
-  // ── Fetch dropdown data on mount ───────────────────────────────────────────
-  useEffect(() => {
-    fetchCustomers();
-    fetchBdList();
-    fetchPayments(filters);
-  }, [fetchPayments, filters]);
-
   const fetchCustomers = async () => {
     try {
       const res = await axios.get("/people/get-all-customers");
@@ -125,6 +118,13 @@ export default function PaymentList() {
 
   // Called when Search button is clicked
   const handleSearch = () => fetchPayments(filters);
+
+  // ── Fetch dropdown data on mount ───────────────────────────────────────────
+  useEffect(() => {
+    fetchCustomers();
+    fetchBdList();
+    fetchPayments(filters);
+  }, [fetchPayments, filters]);
 
   // ── Table settings ─────────────────────────────────────────────────────────
   const [tableSettings, setTableSettings] = useState({

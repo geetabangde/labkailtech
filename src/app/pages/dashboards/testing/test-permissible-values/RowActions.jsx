@@ -1,18 +1,5 @@
 // Import Dependencies
-import {
-  Menu,
-  MenuButton,
-  MenuItem,
-  MenuItems,
-  Transition,
-} from "@headlessui/react";
-import {
-  EllipsisHorizontalIcon,
-  PencilIcon,
-  TrashIcon,
-} from "@heroicons/react/24/outline";
-import clsx from "clsx";
-import { Fragment, useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import PropTypes from "prop-types";
 
 // Local Imports
@@ -20,7 +7,7 @@ import { ConfirmModal } from "components/shared/ConfirmModal";
 import { Button } from "components/ui";
 import axios from "utils/axios";
 import { toast } from "sonner";
-import { useNavigate } from "react-router";
+import { Link } from "react-router";
 
 // ----------------------------------------------------------------------
 
@@ -35,12 +22,8 @@ const confirmMessages = {
 };
 
 export function RowActions({ row, table }) {
-  const navigate = useNavigate();
-
-  const handleEdit = () => {
-    const id = row.original.id;
-    navigate(`/dashboards/testing/test-permissible-values/edit/${id}`);
-  };
+  const id = row.original.id;
+  const editPath = `/dashboards/testing/test-permissible-values/edit/${id}`;
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [confirmDeleteLoading, setConfirmDeleteLoading] = useState(false);
@@ -98,56 +81,27 @@ export function RowActions({ row, table }) {
 
   return (
     <>
-      <div className="flex justify-center space-x-1.5">
-        <Menu as="div" className="relative inline-block text-left">
-          <MenuButton as={Button} isIcon className="size-8 rounded-full">
-            <EllipsisHorizontalIcon className="size-4.5" />
-          </MenuButton>
-          <Transition
-            as={Fragment}
-            enter="transition ease-out"
-            enterFrom="opacity-0 translate-y-2"
-            enterTo="opacity-100 translate-y-0"
-            leave="transition ease-in"
-            leaveFrom="opacity-100 translate-y-0"
-            leaveTo="opacity-0 translate-y-2"
-          >
-            <MenuItems
-              anchor={{ to: "bottom end", gap: 12 }}
-              className="absolute z-100 w-[10rem] rounded-lg border border-gray-300 bg-white py-1 shadow-lg shadow-gray-200/50 outline-hidden focus-visible:outline-hidden dark:border-dark-500 dark:bg-dark-750 dark:shadow-none ltr:right-0 rtl:left-0"
-            >
-              <MenuItem>
-                {({ focus }) => (
-                  <button
-                    onClick={handleEdit}
-                    className={clsx(
-                      "flex h-9 w-full items-center space-x-3 px-3 tracking-wide outline-hidden transition-colors",
-                      focus &&
-                        "bg-gray-100 text-gray-800 dark:bg-dark-600 dark:text-dark-100"
-                    )}
-                  >
-                    <PencilIcon className="size-4.5 stroke-1" />
-                    <span>Edit</span>
-                  </button>
-                )}
-              </MenuItem>
-              <MenuItem>
-                {({ focus }) => (
-                  <button
-                    onClick={openModal}
-                    className={clsx(
-                      "flex h-9 w-full items-center space-x-3 px-3 tracking-wide text-red-600 outline-hidden transition-colors dark:text-red-400",
-                      focus && "bg-red-50 dark:bg-red-900/20"
-                    )}
-                  >
-                    <TrashIcon className="size-4.5 stroke-1" />
-                    <span>Delete</span>
-                  </button>
-                )}
-              </MenuItem>
-            </MenuItems>
-          </Transition>
-        </Menu>
+      <div className="flex items-center justify-center space-x-2">
+        {/* Edit Button */}
+        <Button
+          size="sm"
+          variant="flat"
+          component={Link}
+          to={editPath}
+          className="bg-primary-50 text-primary-600 hover:bg-primary-100 dark:bg-primary-500/10 dark:text-primary-400 dark:hover:bg-primary-500/20 rounded-md px-3 py-1 text-xs font-semibold"
+        >
+          Edit
+        </Button>
+
+        {/* Delete Button */}
+        <Button
+          size="sm"
+          variant="flat"
+          onClick={openModal}
+          className="rounded-md bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
+        >
+          Delete
+        </Button>
       </div>
 
       <ConfirmModal

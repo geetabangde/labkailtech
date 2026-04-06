@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from "react-router";
 import { useState, useEffect } from "react";
+import Select from "react-select";
 import { Button, Input } from "components/ui";
 import { Page } from "components/shared/Page";
 import axios from "utils/axios";
@@ -59,33 +60,61 @@ export default function EditTestPermissibleValue() {
     if (responseData && typeof responseData === "object") {
       if (responseData.data) {
         if (Array.isArray(responseData.data)) {
-          console.log("✅ Found array in .data:", responseData.data.length, "items");
+          console.log(
+            "✅ Found array in .data:",
+            responseData.data.length,
+            "items",
+          );
           if (responseData.data.length > 0) {
-            console.log("   First item structure:", Object.keys(responseData.data[0]));
+            console.log(
+              "   First item structure:",
+              Object.keys(responseData.data[0]),
+            );
           }
           return responseData.data;
         }
         if (responseData.data.data && Array.isArray(responseData.data.data)) {
-          console.log("✅ Found array in .data.data:", responseData.data.data.length, "items");
+          console.log(
+            "✅ Found array in .data.data:",
+            responseData.data.data.length,
+            "items",
+          );
           if (responseData.data.data.length > 0) {
-            console.log("   First item structure:", Object.keys(responseData.data.data[0]));
+            console.log(
+              "   First item structure:",
+              Object.keys(responseData.data.data[0]),
+            );
           }
           return responseData.data.data;
         }
       }
 
       if (Array.isArray(responseData.items)) {
-        console.log("✅ Found array in .items:", responseData.items.length, "items");
+        console.log(
+          "✅ Found array in .items:",
+          responseData.items.length,
+          "items",
+        );
         if (responseData.items.length > 0) {
-          console.log("   First item structure:", Object.keys(responseData.items[0]));
+          console.log(
+            "   First item structure:",
+            Object.keys(responseData.items[0]),
+          );
         }
         return responseData.items;
       }
 
       if (Array.isArray(responseData.results)) {
-        console.log("✅ Found array in .results:", responseData.results.length, "items");
+        console.log(
+          "✅ Found array in .results:",
+          responseData.results.length,
+          "items",
+        );
         if (responseData.results.length > 0) {
-          console.log("   First item structure:", Object.keys(responseData.results[0]));
+          console.log(
+            "   First item structure:",
+            Object.keys(responseData.results[0]),
+          );
         }
         return responseData.results;
       }
@@ -105,7 +134,11 @@ export default function EditTestPermissibleValue() {
 
   // Generate options matching PHP logic
   const generateOptions = (dataArray, fieldName = "unknown") => {
-    console.log(`📋 Generating options for ${fieldName}:`, dataArray?.length || 0, "items");
+    console.log(
+      `📋 Generating options for ${fieldName}:`,
+      dataArray?.length || 0,
+      "items",
+    );
 
     if (!Array.isArray(dataArray) || dataArray.length === 0) {
       console.warn(`⚠️ ${fieldName}: No data available`);
@@ -130,7 +163,10 @@ export default function EditTestPermissibleValue() {
           status === "99";
 
         if (!isActive) {
-          console.log(`⏭️ Skipping inactive (status=${status}):`, item.name || item.id);
+          console.log(
+            `⏭️ Skipping inactive (status=${status}):`,
+            item.name || item.id,
+          );
         }
 
         return isActive;
@@ -164,26 +200,38 @@ export default function EditTestPermissibleValue() {
         // ✅ Smart fallback: scan all string fields (skip id/status/timestamps)
         if (!name) {
           const skipFields = new Set([
-            "id", "ID", "Id",
-            "status", "created_at", "updated_at", "deleted_at",
-            "created_by", "updated_by", "deleted_by",
+            "id",
+            "ID",
+            "Id",
+            "status",
+            "created_at",
+            "updated_at",
+            "deleted_at",
+            "created_by",
+            "updated_by",
+            "deleted_by",
           ]);
           const firstStringField = Object.entries(item).find(
             ([key, val]) =>
               !skipFields.has(key) &&
               typeof val === "string" &&
               val.trim() !== "" &&
-              isNaN(Number(val))
+              isNaN(Number(val)),
           );
           if (firstStringField) {
             name = firstStringField[1];
-            console.log(`🔄 ${fieldName} item ${id}: used field "${firstStringField[0]}" as name`);
+            console.log(
+              `🔄 ${fieldName} item ${id}: used field "${firstStringField[0]}" as name`,
+            );
           }
         }
 
         if (!name && id) {
           name = `Item ${id}`;
-          console.warn(`⚠️ No name found for ${fieldName} item ${id}. Full item:`, JSON.stringify(item));
+          console.warn(
+            `⚠️ No name found for ${fieldName} item ${id}. Full item:`,
+            JSON.stringify(item),
+          );
         }
 
         if (
@@ -202,7 +250,10 @@ export default function EditTestPermissibleValue() {
         const label = name ? String(name).trim() : "";
 
         if (!label && value) {
-          console.warn(`⚠️ Item with ID ${value} in ${fieldName} has no label. Raw item:`, item);
+          console.warn(
+            `⚠️ Item with ID ${value} in ${fieldName} has no label. Raw item:`,
+            item,
+          );
         }
 
         return { value, label };
@@ -225,14 +276,16 @@ export default function EditTestPermissibleValue() {
         if (!isValid) {
           console.warn(
             `⚠️ Filtering invalid option for ${fieldName}:`,
-            JSON.stringify({ value: option.value, label: option.label })
+            JSON.stringify({ value: option.value, label: option.label }),
           );
         }
 
         return isValid;
       });
 
-    console.log(`✅ Generated ${options.length} valid options for ${fieldName}`);
+    console.log(
+      `✅ Generated ${options.length} valid options for ${fieldName}`,
+    );
     if (options.length > 0) {
       console.log(`   First option:`, options[0]);
       console.log(`   Sample options (first 3):`, options.slice(0, 3));
@@ -249,8 +302,13 @@ export default function EditTestPermissibleValue() {
       console.log("🔄 Starting page init...");
 
       const [
-        productsRes, gradesRes, sizesRes, standardsRes,
-        parametersRes, methodsRes, clausesRes,
+        productsRes,
+        gradesRes,
+        sizesRes,
+        standardsRes,
+        parametersRes,
+        methodsRes,
+        clausesRes,
       ] = await Promise.allSettled([
         axios.get("/testing/get-prodcut-list"),
         axios.get("/testing/get-grades"),
@@ -292,8 +350,13 @@ export default function EditTestPermissibleValue() {
 
       // Set all dropdowns loaded at once
       setDropdownLoading({
-        products: false, grades: false, sizes: false, standards: false,
-        parameters: false, methods: false, clauses: false,
+        products: false,
+        grades: false,
+        sizes: false,
+        standards: false,
+        parameters: false,
+        methods: false,
+        clauses: false,
       });
 
       console.log("✅ All dropdowns loaded — fetching record...");
@@ -303,9 +366,12 @@ export default function EditTestPermissibleValue() {
 
       try {
         setFetchLoading(true);
-        const response = await axios.get(`/testing/get-permissible-value-byid`, {
-          params: { id: id }
-        });
+        const response = await axios.get(
+          `/testing/get-permissible-value-byid`,
+          {
+            params: { id: id },
+          },
+        );
         if (cancelled) return;
 
         const result = response.data;
@@ -313,9 +379,12 @@ export default function EditTestPermissibleValue() {
 
         // ✅ FIX: Flexible status handling
         const isSuccess =
-          result.status === true || result.status === "true" ||
-          result.status === 1   || result.status === "1" ||
-          result.status === "success" || result.status === "ok";
+          result.status === true ||
+          result.status === "true" ||
+          result.status === 1 ||
+          result.status === "1" ||
+          result.status === "success" ||
+          result.status === "ok";
 
         if (isSuccess && result.data) {
           const data = result.data;
@@ -325,7 +394,7 @@ export default function EditTestPermissibleValue() {
           const parseArray = (value) => {
             if (Array.isArray(value)) {
               // Convert each item to string
-              return value.map(v => String(v).trim());
+              return value.map((v) => String(v).trim());
             }
             if (typeof value === "string") {
               // Split by comma and convert to strings
@@ -347,36 +416,40 @@ export default function EditTestPermissibleValue() {
             clause: parsedClause,
             pvaluemin: parsedPvaluemin,
             pvaluemax: parsedPvaluemax,
-            specification: parsedSpecification
+            specification: parsedSpecification,
           });
 
           setFormData({
-            product:       String(data.product   || ""),
-            grade:         String(data.grade      || ""),
-            size:          String(data.size       || ""),
-            standard:      String(data.standard   || ""),
-            parameter:     parsedParameter,
-            method:        parsedMethod,
-            clause:        parsedClause,
-            pvaluemin:     parsedPvaluemin,
-            pvaluemax:     parsedPvaluemax,
+            product: String(data.product || ""),
+            grade: String(data.grade || ""),
+            size: String(data.size || ""),
+            standard: String(data.standard || ""),
+            parameter: parsedParameter,
+            method: parsedMethod,
+            clause: parsedClause,
+            pvaluemin: parsedPvaluemin,
+            pvaluemax: parsedPvaluemax,
             specification: parsedSpecification,
-            updated_by:    31,
+            updated_by: 31,
           });
 
           // ✅ Create parameter inputs based on actual count
           const paramCount = parsedParameter.length;
-          const newInputs = Array.from({ length: Math.max(paramCount, 1) }, (_, i) => ({ id: i + 1 }));
+          const newInputs = Array.from(
+            { length: Math.max(paramCount, 1) },
+            (_, i) => ({ id: i + 1 }),
+          );
           setParameterInputs(newInputs);
 
           console.log(`✅ Form populated with ${paramCount} parameters`);
           console.log("   Parameter values:", parsedParameter);
           console.log("   Method values:", parsedMethod);
           console.log("   Clause values:", parsedClause);
-
         } else {
           console.error("❌ Non-success response:", result);
-          toast.error(result.message || "Could not load record. Please try again.");
+          toast.error(
+            result.message || "Could not load record. Please try again.",
+          );
           setParameterInputs([{ id: 1 }]);
         }
       } catch (err) {
@@ -390,25 +463,34 @@ export default function EditTestPermissibleValue() {
     };
 
     initPage();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   // Handle form field changes
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: "" }));
+  const handleSelectChange = (selectedOption, fieldName) => {
+    setFormData((prev) => ({
+      ...prev,
+      [fieldName]: selectedOption ? selectedOption.value : "",
+    }));
+    if (errors[fieldName]) {
+      setErrors((prev) => ({ ...prev, [fieldName]: "" }));
     }
   };
 
-  // Handle array field changes
-  const handleArrayChange = (index, field, value) => {
+  const handleArraySelectChange = (index, field, selectedOption) => {
     setFormData((prev) => {
       const updatedArray = [...prev[field]];
-      updatedArray[index] = value;
+      updatedArray[index] = selectedOption ? selectedOption.value : "";
       return { ...prev, [field]: updatedArray };
     });
+  };
+
+  // Helper function to get selected option object for react-select
+  const getSelectedOption = (value, options) => {
+    if (!value) return null;
+    return options.find((opt) => opt.value === String(value)) || null;
   };
 
   // Handle min/max value changes
@@ -457,11 +539,16 @@ export default function EditTestPermissibleValue() {
 
     setFormData((prev) => {
       const newFormData = { ...prev };
-      ["parameter", "method", "clause", "pvaluemin", "pvaluemax", "specification"].forEach(
-        (key) => {
-          newFormData[key] = newFormData[key].filter((_, i) => i !== index);
-        }
-      );
+      [
+        "parameter",
+        "method",
+        "clause",
+        "pvaluemin",
+        "pvaluemax",
+        "specification",
+      ].forEach((key) => {
+        newFormData[key] = newFormData[key].filter((_, i) => i !== index);
+      });
       return newFormData;
     });
   };
@@ -492,7 +579,8 @@ export default function EditTestPermissibleValue() {
     formData.pvaluemin.forEach((min, index) => {
       const max = formData.pvaluemax[index];
       if (min && max && parseFloat(min) > parseFloat(max)) {
-        newErrors[`value_${index}`] = "Min value cannot be greater than max value";
+        newErrors[`value_${index}`] =
+          "Min value cannot be greater than max value";
       }
     });
 
@@ -528,7 +616,10 @@ export default function EditTestPermissibleValue() {
         }
       });
 
-      const response = await axios.post("/testing/update-permissible-value", formDataToSend);
+      const response = await axios.post(
+        "/testing/update-permissible-value",
+        formDataToSend,
+      );
       const result = response.data;
 
       if (result.status === "true" || result.status === true) {
@@ -537,12 +628,14 @@ export default function EditTestPermissibleValue() {
         });
 
         setTimeout(() => {
-          navigate("/dashboards/testing/test-permissible-values", { 
-            state: { updatedId: parseInt(id) } 
+          navigate("/dashboards/testing/test-permissible-values", {
+            state: { updatedId: parseInt(id) },
           });
         }, 1500);
       } else {
-        toast.error(result.message || "Failed to update test permissible value ❌");
+        toast.error(
+          result.message || "Failed to update test permissible value ❌",
+        );
       }
     } catch (err) {
       console.error("Error updating permissible value:", err);
@@ -562,10 +655,10 @@ export default function EditTestPermissibleValue() {
   if (isAnyDropdownLoading || fetchLoading) {
     return (
       <Page title="Edit Test Permissible Value">
-        <div className="p-6 flex items-center justify-center">
+        <div className="flex items-center justify-center p-6">
           <div className="text-center">
             <svg
-              className="animate-spin h-8 w-8 text-blue-600 mx-auto mb-2"
+              className="mx-auto mb-2 h-8 w-8 animate-spin text-blue-600"
               viewBox="0 0 24 24"
             >
               <circle
@@ -595,14 +688,16 @@ export default function EditTestPermissibleValue() {
     <Page title="Edit Test Permissible Value">
       <div className="p-6">
         {/* Header + Back Button */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
             Edit Test Permissible Value
           </h2>
           <Button
             variant="outline"
-            className="text-white bg-blue-600 hover:bg-blue-700"
-            onClick={() => navigate("/dashboards/testing/test-permissible-values")}
+            className="bg-blue-600 text-white hover:bg-blue-700"
+            onClick={() =>
+              navigate("/dashboards/testing/test-permissible-values")
+            }
           >
             ← Back to List
           </Button>
@@ -611,114 +706,170 @@ export default function EditTestPermissibleValue() {
         {/* Form */}
         <form
           onSubmit={handleSubmit}
-          className="space-y-6 bg-white dark:bg-gray-800 p-6 rounded-lg shadow"
+          className="space-y-6 rounded-lg bg-white p-6 shadow dark:bg-gray-800"
         >
           {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {/* Product */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Product <span className="text-red-500">*</span>
               </label>
-              <select
+              <Select
                 name="product"
-                value={formData.product}
-                onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 
-                         bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                         focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select Product</option>
-                {generateOptions(products, "products").map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                options={generateOptions(products, "products")}
+                value={getSelectedOption(
+                  formData.product,
+                  generateOptions(products, "products"),
+                )}
+                onChange={(option) => handleSelectChange(option, "product")}
+                placeholder="Select Product"
+                className="react-select"
+                classNamePrefix="react-select"
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    backgroundColor: "rgb(255 255 255 / 1)",
+                    borderColor: "rgb(209 213 219 / 1)",
+                    color: "rgb(17 24 39 / 1)",
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isSelected
+                      ? "rgb(59 130 246 / 1)"
+                      : state.isFocused
+                        ? "rgb(219 234 254 / 1)"
+                        : "rgb(255 255 255 / 1)",
+                    color: state.isSelected ? "white" : "rgb(17 24 39 / 1)",
+                  }),
+                }}
+              />
               {errors.product && (
-                <p className="text-red-500 text-sm mt-1">{errors.product}</p>
+                <p className="mt-1 text-sm text-red-500">{errors.product}</p>
               )}
             </div>
 
             {/* Grade */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Grade <span className="text-red-500">*</span>
               </label>
-              <select
+              <Select
                 name="grade"
-                value={formData.grade}
-                onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 
-                         bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                         focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select Grade</option>
-                {generateOptions(grades, "grades").map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                options={generateOptions(grades, "grades")}
+                value={getSelectedOption(
+                  formData.grade,
+                  generateOptions(grades, "grades"),
+                )}
+                onChange={(option) => handleSelectChange(option, "grade")}
+                placeholder="Select Grade"
+                className="react-select"
+                classNamePrefix="react-select"
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    backgroundColor: "rgb(255 255 255 / 1)",
+                    borderColor: "rgb(209 213 219 / 1)",
+                    color: "rgb(17 24 39 / 1)",
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isSelected
+                      ? "rgb(59 130 246 / 1)"
+                      : state.isFocused
+                        ? "rgb(219 234 254 / 1)"
+                        : "rgb(255 255 255 / 1)",
+                    color: state.isSelected ? "white" : "rgb(17 24 39 / 1)",
+                  }),
+                }}
+              />
               {errors.grade && (
-                <p className="text-red-500 text-sm mt-1">{errors.grade}</p>
+                <p className="mt-1 text-sm text-red-500">{errors.grade}</p>
               )}
             </div>
 
             {/* Size */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Size <span className="text-red-500">*</span>
               </label>
-              <select
+              <Select
                 name="size"
-                value={formData.size}
-                onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 
-                         bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                         focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select Size</option>
-                {generateOptions(sizes, "sizes").map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                options={generateOptions(sizes, "sizes")}
+                value={getSelectedOption(
+                  formData.size,
+                  generateOptions(sizes, "sizes"),
+                )}
+                onChange={(option) => handleSelectChange(option, "size")}
+                placeholder="Select Size"
+                className="react-select"
+                classNamePrefix="react-select"
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    backgroundColor: "rgb(255 255 255 / 1)",
+                    borderColor: "rgb(209 213 219 / 1)",
+                    color: "rgb(17 24 39 / 1)",
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isSelected
+                      ? "rgb(59 130 246 / 1)"
+                      : state.isFocused
+                        ? "rgb(219 234 254 / 1)"
+                        : "rgb(255 255 255 / 1)",
+                    color: state.isSelected ? "white" : "rgb(17 24 39 / 1)",
+                  }),
+                }}
+              />
               {errors.size && (
-                <p className="text-red-500 text-sm mt-1">{errors.size}</p>
+                <p className="mt-1 text-sm text-red-500">{errors.size}</p>
               )}
             </div>
 
             {/* Standard */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Standard <span className="text-red-500">*</span>
               </label>
-              <select
+              <Select
                 name="standard"
-                value={formData.standard}
-                onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 
-                         bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                         focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select Standard</option>
-                {generateOptions(standards, "standards").map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                options={generateOptions(standards, "standards")}
+                value={getSelectedOption(
+                  formData.standard,
+                  generateOptions(standards, "standards"),
+                )}
+                onChange={(option) => handleSelectChange(option, "standard")}
+                placeholder="Select Standard"
+                className="react-select"
+                classNamePrefix="react-select"
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    backgroundColor: "rgb(255 255 255 / 1)",
+                    borderColor: "rgb(209 213 219 / 1)",
+                    color: "rgb(17 24 39 / 1)",
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isSelected
+                      ? "rgb(59 130 246 / 1)"
+                      : state.isFocused
+                        ? "rgb(219 234 254 / 1)"
+                        : "rgb(255 255 255 / 1)",
+                    color: state.isSelected ? "white" : "rgb(17 24 39 / 1)",
+                  }),
+                }}
+              />
               {errors.standard && (
-                <p className="text-red-500 text-sm mt-1">{errors.standard}</p>
+                <p className="mt-1 text-sm text-red-500">{errors.standard}</p>
               )}
             </div>
           </div>
 
           {/* Parameters Section */}
           <div className="border-t pt-6">
-            <div className="flex justify-between items-center mb-4">
+            <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
                 Parameters ({parameterInputs.length})
               </h3>
@@ -736,9 +887,9 @@ export default function EditTestPermissibleValue() {
             {parameterInputs.map((row, index) => (
               <div
                 key={row.id}
-                className="border p-4 rounded-lg mb-4 bg-gray-50 dark:bg-gray-700"
+                className="mb-4 rounded-lg border bg-gray-50 p-4 dark:bg-gray-700"
               >
-                <div className="flex justify-between items-center mb-4">
+                <div className="mb-4 flex items-center justify-between">
                   <span className="font-medium text-gray-700 dark:text-gray-300">
                     Parameter #{index + 1}
                   </span>
@@ -755,30 +906,47 @@ export default function EditTestPermissibleValue() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {/* Parameter */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Parameter <span className="text-red-500">*</span>
                     </label>
-                    <select
-                      value={formData.parameter[index] || ""}
-                      onChange={(e) =>
-                        handleArrayChange(index, "parameter", e.target.value)
+                    <Select
+                      name={`parameter_${index}`}
+                      options={generateOptions(parameters, "parameters")}
+                      value={getSelectedOption(
+                        formData.parameter[index],
+                        generateOptions(parameters, "parameters"),
+                      )}
+                      onChange={(option) =>
+                        handleArraySelectChange(index, "parameter", option)
                       }
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 
-                               bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                               focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Parameter</option>
-                      {generateOptions(parameters, "parameters").map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="Select Parameter"
+                      className="react-select"
+                      classNamePrefix="react-select"
+                      styles={{
+                        control: (base) => ({
+                          ...base,
+                          backgroundColor: "rgb(255 255 255 / 1)",
+                          borderColor: "rgb(209 213 219 / 1)",
+                          color: "rgb(17 24 39 / 1)",
+                        }),
+                        option: (base, state) => ({
+                          ...base,
+                          backgroundColor: state.isSelected
+                            ? "rgb(59 130 246 / 1)"
+                            : state.isFocused
+                              ? "rgb(219 234 254 / 1)"
+                              : "rgb(255 255 255 / 1)",
+                          color: state.isSelected
+                            ? "white"
+                            : "rgb(17 24 39 / 1)",
+                        }),
+                      }}
+                    />
                     {errors[`parameter_${index}`] && (
-                      <p className="text-red-500 text-xs mt-1">
+                      <p className="mt-1 text-xs text-red-500">
                         {errors[`parameter_${index}`]}
                       </p>
                     )}
@@ -786,27 +954,44 @@ export default function EditTestPermissibleValue() {
 
                   {/* Method */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Method <span className="text-red-500">*</span>
                     </label>
-                    <select
-                      value={formData.method[index] || ""}
-                      onChange={(e) =>
-                        handleArrayChange(index, "method", e.target.value)
+                    <Select
+                      name={`method_${index}`}
+                      options={generateOptions(methods, "methods")}
+                      value={getSelectedOption(
+                        formData.method[index],
+                        generateOptions(methods, "methods"),
+                      )}
+                      onChange={(option) =>
+                        handleArraySelectChange(index, "method", option)
                       }
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 
-                               bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                               focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Method</option>
-                      {generateOptions(methods, "methods").map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="Select Method"
+                      className="react-select"
+                      classNamePrefix="react-select"
+                      styles={{
+                        control: (base) => ({
+                          ...base,
+                          backgroundColor: "rgb(255 255 255 / 1)",
+                          borderColor: "rgb(209 213 219 / 1)",
+                          color: "rgb(17 24 39 / 1)",
+                        }),
+                        option: (base, state) => ({
+                          ...base,
+                          backgroundColor: state.isSelected
+                            ? "rgb(59 130 246 / 1)"
+                            : state.isFocused
+                              ? "rgb(219 234 254 / 1)"
+                              : "rgb(255 255 255 / 1)",
+                          color: state.isSelected
+                            ? "white"
+                            : "rgb(17 24 39 / 1)",
+                        }),
+                      }}
+                    />
                     {errors[`method_${index}`] && (
-                      <p className="text-red-500 text-xs mt-1">
+                      <p className="mt-1 text-xs text-red-500">
                         {errors[`method_${index}`]}
                       </p>
                     )}
@@ -814,25 +999,42 @@ export default function EditTestPermissibleValue() {
 
                   {/* Clause */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Clause
                     </label>
-                    <select
-                      value={formData.clause[index] || ""}
-                      onChange={(e) =>
-                        handleArrayChange(index, "clause", e.target.value)
+                    <Select
+                      name={`clause_${index}`}
+                      options={generateOptions(clauses, "clauses")}
+                      value={getSelectedOption(
+                        formData.clause[index],
+                        generateOptions(clauses, "clauses"),
+                      )}
+                      onChange={(option) =>
+                        handleArraySelectChange(index, "clause", option)
                       }
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 
-                               bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                               focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Clause</option>
-                      {generateOptions(clauses, "clauses").map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="Select Clause"
+                      className="react-select"
+                      classNamePrefix="react-select"
+                      styles={{
+                        control: (base) => ({
+                          ...base,
+                          backgroundColor: "rgb(255 255 255 / 1)",
+                          borderColor: "rgb(209 213 219 / 1)",
+                          color: "rgb(17 24 39 / 1)",
+                        }),
+                        option: (base, state) => ({
+                          ...base,
+                          backgroundColor: state.isSelected
+                            ? "rgb(59 130 246 / 1)"
+                            : state.isFocused
+                              ? "rgb(219 234 254 / 1)"
+                              : "rgb(255 255 255 / 1)",
+                          color: state.isSelected
+                            ? "white"
+                            : "rgb(17 24 39 / 1)",
+                        }),
+                      }}
+                    />
                   </div>
 
                   {/* Min Value */}
@@ -877,7 +1079,7 @@ export default function EditTestPermissibleValue() {
                 </div>
 
                 {errors[`value_${index}`] && (
-                  <p className="text-red-500 text-sm mt-2">
+                  <p className="mt-2 text-sm text-red-500">
                     {errors[`value_${index}`]}
                   </p>
                 )}
@@ -886,7 +1088,7 @@ export default function EditTestPermissibleValue() {
           </div>
 
           {/* Submit Button */}
-          <div className="flex justify-end gap-4 pt-4 border-t">
+          <div className="flex justify-end gap-4 border-t pt-4">
             <Button
               type="button"
               variant="outline"
@@ -906,7 +1108,7 @@ export default function EditTestPermissibleValue() {
               {submitLoading ? (
                 <div className="flex items-center justify-center gap-2">
                   <svg
-                    className="animate-spin h-4 w-4 text-white"
+                    className="h-4 w-4 animate-spin text-white"
                     viewBox="0 0 24 24"
                   >
                     <circle
